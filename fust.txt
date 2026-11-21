@@ -1,2232 +1,626 @@
-PROJECT VECTOR: LUA API REFERENCE
-=====================================
+--[[
+    FUST ULTIMATE HUB — Project Vector
+    Based on dust_stone_esp_inv.lua (Hamster Hub)
+    Tabs: Aimbot | Visuals | World | Inventory | Settings
+]]
 
+local TAB_AIM   = "Aimbot"
+local TAB_VIS   = "Visuals"
+local TAB_WORLD = "World"
+local TAB_INV   = "Inventory"
+local TAB_CFG   = "Settings"
 
-THREAD (thread.*)
-─────────────────
+-- ============================ MENU LAYOUT ============================
+menu.AddTab(TAB_AIM,   "A")
+menu.AddTab(TAB_VIS,   "V")
+menu.AddTab(TAB_WORLD, "W")
+menu.AddTab(TAB_INV,   "I")
+menu.AddTab(TAB_CFG,   "S")
 
-thread.Create → integer
-  Registers a recurring callback that fires every interval_ms milliseconds. Returns an integer ID for use with thread.Stop, thread.IsRunning, and thread.SetInterval.
+-- ---------------- AIMBOT & PREDICTION ----------------
+menu.AddGroup(TAB_AIM, "Aimbot & Prediction")
+menu.AddCheckbox(TAB_AIM, "Aimbot & Prediction", "aim_enabled",     "Enable Aimbot", false, { key = 0x46, show_mode = false })
+menu.AddCheckbox(TAB_AIM, "Aimbot & Prediction", "aim_silent",      "Silent Aim (hook)", false, { parent = "aim_enabled" })
+menu.AddCheckbox(TAB_AIM, "Aimbot & Prediction", "aim_draw_fov",    "Draw FOV Circle", true,  { parent = "aim_enabled", colorpicker = {1,1,1,0.35} })
+menu.AddCheckbox(TAB_AIM, "Aimbot & Prediction", "aim_vis_check",   "Visible Check (LOS)", false, { parent = "aim_enabled" })
+menu.AddCheckbox(TAB_AIM, "Aimbot & Prediction", "aim_team_check",  "Skip Teammates",    false, { parent = "aim_enabled" })
+menu.AddCheckbox(TAB_AIM, "Aimbot & Prediction", "aim_prediction",  "Lead Prediction",   true,  { parent = "aim_enabled" })
+menu.AddCheckbox(TAB_AIM, "Aimbot & Prediction", "aim_highlight",   "Pulsing Target Ring", true, { parent = "aim_enabled", colorpicker = {1,0.3,0.3,1} })
+menu.AddCombo(TAB_AIM,   "Aimbot & Prediction", "aim_bone",        "Target Bone", {"Head","UpperTorso","HumanoidRootPart"}, 0, { parent = "aim_enabled" })
+menu.AddSliderInt(TAB_AIM, "Aimbot & Prediction", "aim_fov",       "FOV Radius (px)", 20, 600, 140, "%d", { parent = "aim_enabled" })
+menu.AddSliderInt(TAB_AIM, "Aimbot & Prediction", "aim_smooth",    "Smoothing (1=instant)", 1, 20, 4, "%d", { parent = "aim_enabled" })
+menu.AddSliderFloat(TAB_AIM, "Aimbot & Prediction", "aim_speed",   "Projectile Speed (st/s)", 50, 1200, 350, "%.0f", { parent = "aim_enabled" })
 
-  Signature:
-    function thread.Create(callback: function, interval_ms?: integer) → integer
+-- ---------------- GUN MODS ----------------
+menu.AddGroup(TAB_AIM, "Gun Mods")
+menu.AddCheckbox(TAB_AIM, "Gun Mods", "gun_recoil",     "Recoil Control (RCS)", false)
+menu.AddSliderInt(TAB_AIM, "Gun Mods", "gun_recoil_pct", "Recoil Reduction %", 10, 100, 80, "%d%%", { parent = "gun_recoil" })
+menu.AddCheckbox(TAB_AIM, "Gun Mods", "gun_rapid",      "Full Auto / Rapid Fire", false)
+menu.AddSliderInt(TAB_AIM, "Gun Mods", "gun_rapid_ms",  "Rapid Delay (ms)", 50, 400, 120, "%d", { parent = "gun_rapid" })
+menu.AddCheckbox(TAB_AIM, "Gun Mods", "gun_trigger",    "Triggerbot", false)
+menu.AddSliderInt(TAB_AIM, "Gun Mods", "gun_trigger_ms", "Reaction Delay (ms)", 0, 200, 25, "%d", { parent = "gun_trigger" })
 
-  Parameters:
-    callback — function
-    interval_ms (optional) — integer
+-- ---------------- CAMERA & ZOOM ----------------
+menu.AddGroup(TAB_AIM, "Camera & Zoom")
+menu.AddCheckbox(TAB_AIM, "Camera & Zoom", "zoom_enabled", "Zoom / Scope", false, { key = 0, show_mode = false })
+menu.AddSliderInt(TAB_AIM, "Camera & Zoom", "zoom_fov",    "Zoom FOV", 10, 60, 30, "%d", { parent = "zoom_enabled" })
+menu.AddCheckbox(TAB_AIM, "Camera & Zoom", "cam_track",    "Lock-On Camera (hold G)", false)
 
-  Example:
-    local id = thread.Create(function()
-      -- fires every 100ms
-      print("tick")
-    end)
-    
-    -- custom interval (500ms)
-    local id2 = thread.Create(function()
-      print("slow tick")
-    end, 500)
+-- ---------------- PLAYER ESP ----------------
+menu.AddGroup(TAB_VIS, "Player ESP")
+menu.AddCheckbox(TAB_VIS, "Player ESP", "player_esp",    "Enable Player ESP", false)
+menu.AddCheckbox(TAB_VIS, "Player ESP", "player_box",    "Bounding Box", false, { parent = "player_esp", colorpicker = {1,1,1,0.85} })
+menu.AddCheckbox(TAB_VIS, "Player ESP", "player_chams",  "Filled Chams", false, { parent = "player_esp", colorpicker = {0.95,0.25,0.25,0.25} })
+menu.AddCheckbox(TAB_VIS, "Player ESP", "player_health", "Health Bar + HP", false, { parent = "player_esp" })
+menu.AddCheckbox(TAB_VIS, "Player ESP", "player_name",   "Name Tag", false, { parent = "player_esp" })
+menu.AddCheckbox(TAB_VIS, "Player ESP", "player_dist",   "Distance", false, { parent = "player_esp" })
+menu.AddCheckbox(TAB_VIS, "Player ESP", "player_tracer", "Snaplines", false, { parent = "player_esp", colorpicker = {1,1,1,0.35} })
+menu.AddCheckbox(TAB_VIS, "Player ESP", "offscreen_ply", "Off-Screen Radar", false, { parent = "player_esp" })
+menu.AddSliderInt(TAB_VIS, "Player ESP", "player_maxdist", "Max Range (m)", 20, 1500, 500, "%d", { parent = "player_esp" })
+menu.AddSliderInt(TAB_VIS, "Player ESP", "player_font",  "Text Size", 10, 20, 13, "%d", { parent = "player_esp" })
 
-  ────────────────────────────────────────
+-- ---------------- NPC ESP ----------------
+menu.AddGroup(TAB_VIS, "NPCs ESP")
+menu.AddCheckbox(TAB_VIS, "NPCs ESP", "npcs_esp",    "Enable NPCs ESP", false)
+menu.AddCheckbox(TAB_VIS, "NPCs ESP", "npc_soldier", "Soldiers/Scientists", false, { parent = "npcs_esp", colorpicker = {0.25,0.85,1,1} })
+menu.AddCheckbox(TAB_VIS, "NPCs ESP", "npc_heli",    "Patrol Helicopter", false, { parent = "npcs_esp", colorpicker = {1,0.2,0.2,1} })
+menu.AddCheckbox(TAB_VIS, "NPCs ESP", "npc_name",    "Show Name", false, { parent = "npcs_esp" })
+menu.AddCheckbox(TAB_VIS, "NPCs ESP", "npc_dist",    "Distance", false, { parent = "npcs_esp" })
+menu.AddCheckbox(TAB_VIS, "NPCs ESP", "npc_health",  "Health Bar", false, { parent = "npcs_esp" })
+menu.AddCheckbox(TAB_VIS, "NPCs ESP", "npc_tracer",  "Snaplines", false, { parent = "npcs_esp", colorpicker = {1,1,1,0.35} })
+menu.AddSliderInt(TAB_VIS, "NPCs ESP", "npcs_maxdist", "Max Range (m)", 20, 1200, 450, "%d", { parent = "npcs_esp" })
 
-thread.Stop → void
-  Stops the thread with the given ID and releases its callback. Silent no-op if the ID does not exist.
+-- ---------------- ANIMALS ESP ----------------
+menu.AddGroup(TAB_VIS, "Animals ESP")
+menu.AddCheckbox(TAB_VIS, "Animals ESP", "animals_esp",   "Enable Animals ESP", false)
+menu.AddCheckbox(TAB_VIS, "Animals ESP", "animal_bear",   "Bears", false, { parent = "animals_esp", colorpicker = {0.95,0.25,0.25,1} })
+menu.AddCheckbox(TAB_VIS, "Animals ESP", "animal_wolf",   "Wolves/Werewolves", false, { parent = "animals_esp", colorpicker = {1,0.55,0.2,1} })
+menu.AddCheckbox(TAB_VIS, "Animals ESP", "animal_boar",   "Boars", false, { parent = "animals_esp", colorpicker = {0.85,0.7,0.4,1} })
+menu.AddCheckbox(TAB_VIS, "Animals ESP", "animal_deer",   "Deer", false, { parent = "animals_esp", colorpicker = {0.4,0.9,0.5,1} })
+menu.AddCheckbox(TAB_VIS, "Animals ESP", "animals_name",  "Name", false, { parent = "animals_esp" })
+menu.AddCheckbox(TAB_VIS, "Animals ESP", "animals_dist",  "Distance", false, { parent = "animals_esp" })
+menu.AddSliderInt(TAB_VIS, "Animals ESP", "animals_maxdist", "Max Range (m)", 20, 1200, 450, "%d", { parent = "animals_esp" })
 
-  Signature:
-    function thread.Stop(id: integer) → void
+-- ---------------- ENVIRONMENT ----------------
+menu.AddGroup(TAB_VIS, "Environment")
+menu.AddCheckbox(TAB_VIS, "Environment", "no_fog",       "Remove All Fog", false)
+menu.AddCheckbox(TAB_VIS, "Environment", "no_grass",     "Remove Grass", false)
+menu.AddCheckbox(TAB_VIS, "Environment", "bright_light", "Boost Brightness", false)
+menu.AddCheckbox(TAB_VIS, "Environment", "hl_enemies",   "Highlight All Enemies", false)
+menu.AddSliderInt(TAB_VIS, "Environment", "fov_override", "Custom FOV (0=off)", 0, 120, 0, "%d")
 
-  Parameters:
-    id — integer
+-- ---------------- LOOT ESP ----------------
+menu.AddGroup(TAB_WORLD, "Loot Containers ESP")
+menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_esp",      "Enable Loot ESP", false)
+menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_barrels",  "Loot Barrels", true, { parent = "loot_esp", colorpicker = {0.25,0.75,1,1} })
+menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_crates",   "Standard Crates", true, { parent = "loot_esp", colorpicker = {0.95,0.7,0.25,1} })
+menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_military", "Military Crates", true, { parent = "loot_esp", colorpicker = {0.2,1,0.4,1} })
+menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_elite",    "Elite Crates", true, { parent = "loot_esp", colorpicker = {0.95,0.25,0.45,1} })
+menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_base_cat", "[+] Base Storage", true, { parent = "loot_esp" })
+menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_largebox", "Large Wooden Box", true, { parent = "loot_base_cat", colorpicker = {0.95,0.65,0.2,1} })
+menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_smallbox", "Small Wooden Box", true, { parent = "loot_base_cat", colorpicker = {0.85,0.5,0.15,1} })
+menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_tc",       "Tool Cupboard", true, { parent = "loot_base_cat", colorpicker = {0.2,0.85,1,1} })
+menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_locker",   "Locker", true, { parent = "loot_base_cat", colorpicker = {0.7,0.75,0.9,1} })
+menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_furnace",  "Furnace", true, { parent = "loot_base_cat", colorpicker = {1,0.42,0.15,1} })
+menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_workbench","Workbench", true, { parent = "loot_base_cat", colorpicker = {0.6,0.85,0.4,1} })
+menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_shelves",  "Shelves", true, { parent = "loot_base_cat", colorpicker = {0.8,0.6,0.35,1} })
+menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_sleepbag", "Sleeping Bag", true, { parent = "loot_base_cat", colorpicker = {0.45,0.9,0.65,1} })
+menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_dist",     "Show Distance", true, { parent = "loot_esp" })
+menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_tracer",   "Snaplines", false, { parent = "loot_esp", colorpicker = {1,1,1,0.35} })
+menu.AddSliderInt(TAB_WORLD, "Loot Containers ESP", "loot_maxdist", "Max Range (m)", 20, 1000, 350, "%d", { parent = "loot_esp" })
 
-  Example:
-    local id = thread.Create(function()
-      print("running")
-    end)
-    
-    thread.Stop(id)
+-- ---------------- BODY BAGS & DROPPED ----------------
+menu.AddGroup(TAB_WORLD, "Body Bags & Dropped")
+menu.AddCheckbox(TAB_WORLD, "Body Bags & Dropped", "bodybag_esp",    "Body Bags ESP", false, { colorpicker = {0.9,0.25,0.35,1} })
+menu.AddCheckbox(TAB_WORLD, "Body Bags & Dropped", "bodybag_dist",   "Distance", false, { parent = "bodybag_esp" })
+menu.AddCheckbox(TAB_WORLD, "Body Bags & Dropped", "bodybag_tracer", "Snaplines", false, { parent = "bodybag_esp", colorpicker = {1,1,1,0.35} })
+menu.AddSliderInt(TAB_WORLD, "Body Bags & Dropped", "bodybag_maxdist", "Range (m)", 20, 1000, 500, "%d", { parent = "bodybag_esp" })
+menu.AddCheckbox(TAB_WORLD, "Body Bags & Dropped", "dropped_esp",    "Dropped Items ESP", false)
+menu.AddCheckbox(TAB_WORLD, "Body Bags & Dropped", "dropped_tracer", "Snaplines", false, { parent = "dropped_esp", colorpicker = {1,0.4,0.9,1} })
+menu.AddCheckbox(TAB_WORLD, "Body Bags & Dropped", "dropped_dist",   "Distance", false, { parent = "dropped_esp" })
+menu.AddSliderInt(TAB_WORLD, "Body Bags & Dropped", "dropped_maxdist", "Range (m)", 10, 500, 150, "%d", { parent = "dropped_esp" })
 
-  ────────────────────────────────────────
+-- ---------------- ORE NODES & PICKUPS ----------------
+menu.AddGroup(TAB_WORLD, "Ore Nodes & Pickups")
+menu.AddCheckbox(TAB_WORLD, "Ore Nodes & Pickups", "nodes_esp",    "Ore Nodes ESP", false)
+menu.AddCheckbox(TAB_WORLD, "Ore Nodes & Pickups", "node_stone",   "Stone Nodes", false, { parent = "nodes_esp", colorpicker = {0.85,0.85,0.9,1} })
+menu.AddCheckbox(TAB_WORLD, "Ore Nodes & Pickups", "node_sulfur",  "Sulfur Nodes", false, { parent = "nodes_esp", colorpicker = {0.95,0.85,0.2,1} })
+menu.AddCheckbox(TAB_WORLD, "Ore Nodes & Pickups", "node_iron",    "Metal/Iron Nodes", false, { parent = "nodes_esp", colorpicker = {0.45,0.75,1,1} })
+menu.AddCheckbox(TAB_WORLD, "Ore Nodes & Pickups", "nodes_dist",   "Distance", false, { parent = "nodes_esp" })
+menu.AddCheckbox(TAB_WORLD, "Ore Nodes & Pickups", "nodes_tracer", "Snaplines", false, { parent = "nodes_esp", colorpicker = {1,1,1,0.35} })
+menu.AddSliderInt(TAB_WORLD, "Ore Nodes & Pickups", "nodes_maxdist", "Range (m)", 20, 1200, 450, "%d", { parent = "nodes_esp" })
+menu.AddCheckbox(TAB_WORLD, "Ore Nodes & Pickups", "pickups_esp",  "Ground Pickups ESP", false)
+menu.AddCheckbox(TAB_WORLD, "Ore Nodes & Pickups", "pickup_ores",  "Loose Ores", false, { parent = "pickups_esp", colorpicker = {1,0.8,0.35,1} })
+menu.AddCheckbox(TAB_WORLD, "Ore Nodes & Pickups", "pickup_plants","Plants", false, { parent = "pickups_esp", colorpicker = {0.35,0.95,0.45,1} })
+menu.AddCheckbox(TAB_WORLD, "Ore Nodes & Pickups", "pickup_wood",  "Wood Logs", false, { parent = "pickups_esp", colorpicker = {0.75,0.55,0.35,1} })
+menu.AddCheckbox(TAB_WORLD, "Ore Nodes & Pickups", "pickups_dist", "Distance", false, { parent = "pickups_esp" })
+menu.AddSliderInt(TAB_WORLD, "Ore Nodes & Pickups", "pickups_maxdist", "Range (m)", 10, 600, 200, "%d", { parent = "pickups_esp" })
 
-thread.StopAll → void
-  Stops all active threads and releases their callbacks. Called automatically when a script is unloaded.
-
-  Signature:
-    function thread.StopAll() → void
-
-  Example:
-    thread.StopAll()
-
-  ────────────────────────────────────────
-
-thread.IsRunning → boolean
-  Returns true if a thread with the given ID exists and is active.
-
-  Signature:
-    function thread.IsRunning(id: integer) → boolean
-
-  Parameters:
-    id — integer
-
-  Example:
-    local id = thread.Create(function() end)
-    
-    print(thread.IsRunning(id))  -- true
-    thread.Stop(id)
-    print(thread.IsRunning(id))  -- false
-
-  ────────────────────────────────────────
-
-thread.SetInterval → void
-  Updates the fire interval of an existing thread in-place. interval_ms is clamped to a minimum of 1. Silent no-op if the ID does not exist.
-
-  Signature:
-    function thread.SetInterval(id: integer, interval_ms: integer) → void
-
-  Parameters:
-    id — integer
-    interval_ms — integer
-
-  Example:
-    local id = thread.Create(function()
-      print("tick")
-    end, 100)
-    
-    -- slow it down to once per second
-    thread.SetInterval(id, 1000)
-
-  ────────────────────────────────────────
-
-sleep → void
-  Pauses the script for the given number of seconds. Not valid inside a thread.Create callback.
-
-  Signature:
-    function sleep(seconds: number) → void
-
-  Parameters:
-    seconds — number
-
-  Example:
-    while true do
-      print("hello")
-      sleep(1)
+-- ---------------- INVENTORY VIEWER ----------------
+menu.AddGroup(TAB_INV, "Player Inventory Viewer")
+menu.AddCheckbox(TAB_INV, "Player Inventory Viewer", "inv_enabled", "Enable Inventory Viewer", false)
+menu.AddCombo(TAB_INV, "Player Inventory Viewer", "inv_mode", "View Mode",
+    {"Target (Near Crosshair)","Local Player","Both"}, 0, { parent = "inv_enabled" })
+menu.AddCheckbox(TAB_INV, "Player Inventory Viewer", "inv_weapons", "Weapons", true, { parent = "inv_enabled" })
+menu.AddCheckbox(TAB_INV, "Player Inventory Viewer", "inv_armor",   "Armor & Tier", true, { parent = "inv_enabled" })
+menu.AddCheckbox(TAB_INV, "Player Inventory Viewer", "inv_pack",    "Backpack Contents", true, { parent = "inv_enabled" })
+menu.AddCheckbox(TAB_INV, "Player Inventory Viewer", "inv_grid",    "Full Grid (Slots 7-36)", true, { parent = "inv_enabled" })
+menu.AddSliderInt(TAB_INV, "Player Inventory Viewer", "inv_x", "Panel X", 10, 1920, 35, "%d", { parent = "inv_enabled" })
+menu.AddSliderInt(TAB_INV, "Player Inventory Viewer", "inv_y", "Panel Y", 10, 1080, 180, "%d", { parent = "inv_enabled" })
+menu.AddSliderInt(TAB_INV, "Player Inventory Viewer", "inv_w", "Panel Width", 220, 520, 320, "%d", { parent = "inv_enabled" })
+menu.AddButton(TAB_INV, "Player Inventory Viewer", "btn_kill", "Kill Target", function()
+    local t = aim_target and aim_target.player
+    if t and t.IsAlive then
+        t.Health = 0
+        notify.Success("Killed", t.Name)
+    else
+        notify.Warning("No target")
     end
-
-  ────────────────────────────────────────
-
-OnFrame
-  Set this global to a function and it will be called every render frame. All three naming styles work: OnFrame, onFrame, on_frame.
-
-  Example:
-    OnFrame = function()
-      local lp = game.LocalPlayer
-      -- runs every frame
-    end
-
-  ────────────────────────────────────────
-
-OnPlayerAdded
-  Called when a player joins. The new Player instance is passed as the first argument.
-
-  Example:
-    OnPlayerAdded = function(player)
-      print(player.Name, "joined")
-    end
-
-  ────────────────────────────────────────
-
-OnPlayerRemoved
-  Called when a player leaves. The departing Player instance is passed as the first argument.
-
-  Example:
-    OnPlayerRemoved = function(player)
-      print(player.Name, "left")
-    end
-
-  ────────────────────────────────────────
-
-
-GAME (game.*)
-─────────────
-
-game.LocalPlayer → instance
-  Returns the local Player instance. Equivalent to game.Players.LocalPlayer.
-
-  Example:
-    local lp = game.LocalPlayer
-    local char = lp.Character
-    print(lp.Name, lp.UserId)
-
-  ────────────────────────────────────────
-
-game.GetService → instance
-  Returns any Roblox service by class name. Both dot and colon syntax work.
-
-  Signature:
-    function game.GetService(name: string) → instance
-
-  Parameters:
-    name — string
-
-  Example:
-    local RS = game.GetService("ReplicatedStorage")
-    local Run = game.GetService("RunService")
-    
-    -- colon syntax also works
-    local Players = game:GetService("Players")
-
-  ────────────────────────────────────────
-
-game.Workspace → instance
-  The Workspace service; root container for all 3D world objects.
-
-  Example:
-    local ws = game.Workspace
-    for _, obj in ipairs(ws:GetChildren()) do
-      print(obj.Name, obj.ClassName)
-    end
-
-  ────────────────────────────────────────
-
-game.Players → instance
-  The Players service. Children are all connected Player instances.
-
-  Example:
-    for _, p in ipairs(game.Players:GetChildren()) do
-      print(p.Name, p.UserId)
-    end
-
-  ────────────────────────────────────────
-
-game.PlaceId
-  The place ID of the currently running Roblox game. game.GameId is the parent universe ID.
-
-  Example:
-    print("Place:", game.PlaceId)
-    print("Game:",  game.GameId)
-
-  ────────────────────────────────────────
-
-Service Shortcuts
-  Convenience properties for the most common services. Each is equivalent to game.GetService("<ServiceName>"). Available shortcuts: ReplicatedStorage, ReplicatedFirst, StarterGui, StarterPack, StarterPlayer, Teams, SoundService, Chat, RunService.
-
-  Example:
-    local gui = game.StarterGui
-    local run = game.RunService
-    local rstor = game.ReplicatedStorage
-    
-    -- same as:
-    local gui2 = game.GetService("StarterGui")
-
-  ────────────────────────────────────────
-
-Instance Properties
-  Common properties available on every instance returned by the API.
-
-  Properties:
-    Name — string
-    ClassName — string
-    Parent — instance
-    Address — integer
-
-  Example:
-    local lp = game.LocalPlayer
-    print(lp.Name)       -- e.g. "Surge"
-    print(lp.ClassName)  -- "Player"
-    print(lp.Parent.Name) -- "Players"
-    print(string.format("0x%X", lp.Address))
-
-  ────────────────────────────────────────
-
-inst:GetChildren → table
-  Returns a table of all direct children of this instance.
-
-  Signature:
-    function inst:GetChildren() → table
-
-  Example:
-    local children = game.Workspace:GetChildren()
-    for _, c in ipairs(children) do
-      print(c.Name, c.ClassName)
-    end
-
-  ────────────────────────────────────────
-
-inst:GetDescendants → table
-  Returns a flat table of all descendants, searched recursively. GetDescendantsOfClass filters by class name.
-
-  Variants:
-    inst:GetDescendants() — All descendants
-    inst:GetDescendantsOfClass(className) — Only descendants whose ClassName matches
-
-  Example:
-    -- find every Part in workspace
-    local parts = game.Workspace:GetDescendantsOfClass("Part")
-    print(#parts, "parts found")
-    
-    -- all descendants
-    local all = game.Workspace:GetDescendants()
-    print(#all, "total objects")
-
-  ────────────────────────────────────────
-
-inst:FindFirstChild → instance?
-  Searches children by name or class; returns nil if not found.
-
-  Variants:
-    inst:FindFirstChild(name, recursive?) — First child whose Name matches
-    inst:FindFirstChildOfClass(className) — First child whose ClassName matches
-    inst:FindFirstChildWhichIsA(className) — First child whose class inherits from className
-
-  Example:
-    local char = game.LocalPlayer.Character
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    
-    if hum then
-      print("Health:", hum.Health)
-    end
-
-  ────────────────────────────────────────
-
-inst:FindFirstDescendant → instance?
-  Searches all descendants and ancestors by name or class. Returns nil if not found.
-
-  Variants:
-    inst:FindFirstDescendant(name) — First descendant whose Name matches
-    inst:FindFirstDescendantOfClass(className) — First descendant whose ClassName matches
-    inst:FindFirstAncestor(name) — First ancestor whose Name matches
-    inst:FindFirstAncestorOfClass(className) — First ancestor whose ClassName matches
-
-  Example:
-    local part = game.Workspace:FindFirstDescendant("Baseplate")
-    local model = part:FindFirstAncestorOfClass("Model")
-
-  ────────────────────────────────────────
-
-inst:IsA → boolean
-  Tests class membership and hierarchy relationships between instances.
-
-  Variants:
-    inst:IsA(className) — True if inst's class inherits from className
-    inst:IsDescendantOf(ancestor) — True if inst is a descendant of ancestor
-    inst:IsAncestorOf(descendant) — True if inst is an ancestor of descendant
-
-  Example:
-    local hum = game.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-    
-    print(hum:IsA("Humanoid"))           -- true
-    print(hum:IsDescendantOf(game.Workspace)) -- true
-    print(game.Workspace:IsAncestorOf(hum))  -- true
-
-  ────────────────────────────────────────
-
-Vector3.New → Vector3
-  Creates a Vector3 userdata value. All three components default to 0 if omitted. Supports arithmetic operators (+ - * / -unary), ==, # (magnitude), and tostring.
-
-  Signature:
-    function Vector3.New(x?: number, y?: number, z?: number) → Vector3
-
-  Fields & Methods:
-    x / X, y / Y, z / Z — number
-    Magnitude — number
-    Unit — Vector3
-    :Dot(other) — number
-    :Cross(other) — Vector3
-    :Lerp(goal, alpha) — Vector3
-
-  Example:
-    local a = Vector3.New(1, 0, 0)
-    local b = Vector3.New(0, 1, 0)
-    
-    print(a.Magnitude)       -- 1
-    print(a:Dot(b))         -- 0
-    print(a:Cross(b))       -- 0, 0, 1
-    print(a:Lerp(b, 0.5))   -- 0.5, 0.5, 0
-    print(a + b)            -- 1, 1, 0
-    print(a * 2)            -- 2, 0, 0
-
-  ────────────────────────────────────────
-
-
-MENU (menu.*)
-─────────────
-
-menu.AddTab
-  Creates a top-level tab. All menu functions are available as PascalCase, camelCase, and snake_case (AddTab / addTab / add_tab).
-
-  Signature:
-    function menu.AddTab(name: string, icon?: string, size?: string)
-
-  Parameters:
-    name — string
-    icon — string
-    size — string
-
-  Example:
-    menu.AddTab("Combat", "C")
-    menu.AddTab("Visuals", "V")
-    menu.AddTab("Misc", "M", "half")
-
-  ────────────────────────────────────────
-
-menu.AddGroup
-  Creates a group container inside a tab that holds elements.
-
-  Signature:
-    function menu.AddGroup(tab: string, name: string, width?: number, same_line?: boolean)
-
-  Parameters:
-    tab — string
-    name — string
-    width — number
-    same_line — boolean
-
-  Example:
-    menu.AddTab("Combat", "C")
-    menu.AddGroup("Combat", "Aimbot")
-    menu.AddGroup("Combat", "Target", 0, true) -- right of Aimbot
-
-  ────────────────────────────────────────
-
-menu.AddCheckbox
-  Adds a toggle checkbox. Supports an optional inline hotkey, color picker, and parent visibility dependency via the options table.
-
-  Signature:
-    function menu.AddCheckbox(tab, group, id, label: string, default?: boolean, options?: table)
-
-  Common Parameters:
-    tab — string
-    group — string
-    id — string
-    label — string
-    default — boolean
-
-  Options Table:
-    key — integer
-    colorpicker — {r,g,b,a}
-    parent — string
-    show_mode — boolean
-
-  Example:
-    -- basic checkbox
-    menu.AddCheckbox("Combat", "Aimbot", "aim_enabled", "Enable", false)
-    
-    -- with hotkey and color picker
-    menu.AddCheckbox("Visuals", "ESP", "esp_box", "Boxes", true, {
-      key = 0x42, -- B key
-      colorpicker = {1,0,0,1}, -- red
-    })
-    
-    -- child that hides when aim_enabled is off
-    menu.AddCheckbox("Combat", "Aimbot", "aim_silent", "Silent", false, {
-      parent = "aim_enabled"
-    })
-
-  ────────────────────────────────────────
-
-menu.AddSliderInt / AddSliderFloat
-  Adds an integer or float slider. The format string uses standard printf syntax and is shown next to the current value.
-
-  Variants:
-    AddSliderInt(tab, group, id, label, min, max, default?, format?, options?) — Integer values. Default format: "%d"
-    AddSliderFloat(tab, group, id, label, min, max, default?, format?, options?) — Float values. Default format: "%.2f"
-
-  Options Table:
-    parent — string
-    parent_value — integer
-
-  Example:
-    menu.AddSliderInt("Combat", "Aimbot", "fov", "FOV", 1, 360, 90, "%d°")
-    menu.AddSliderFloat("Combat", "Aimbot", "smooth", "Smooth", 0.1, 10.0, 1.0, "%.1f")
-    
-    menu.SetCallback("fov", function(v)
-      print("FOV changed to", v)
-    end)
-
-  ────────────────────────────────────────
-
-menu.AddButton
-  Adds a full-width clickable button. The callback is set at creation time — use the callback parameter, not SetCallback (which has no effect on buttons).
-
-  Signature:
-    function menu.AddButton(tab, group, id, label: string, callback?: function)
-
-  Example:
-    menu.AddButton("Misc", "Utils", "btn_clear", "Clear logs", function()
-      print("logs cleared")
-    end)
-
-  ────────────────────────────────────────
-
-menu.AddCombo
-  Adds a single-select dropdown. Get returns the current 0-based selected index. The change callback receives the new index.
-
-  Signature:
-    function menu.AddCombo(tab, group, id, label: string, items: table, default_idx?: integer, options?: table)
-
-  Parameters:
-    items — string[]
-    default_idx — integer
-
-  Example:
-    menu.AddCombo("Combat", "Aimbot", "aim_bone", "Bone",
-      {"Head", "Neck", "Chest"}, 0)
-    
-    menu.SetCallback("aim_bone", function(idx)
-      print("Selected bone index:", idx)
-    end)
-    
-    local bone = menu.Get("aim_bone") -- integer 0/1/2
-
-  ────────────────────────────────────────
-
-menu.AddMulticombo
-  Adds a multi-select dropdown. Get returns an array of booleans, one per item. No change callback is fired.
-
-  Signature:
-    function menu.AddMulticombo(tab, group, id, label: string, items: table, defaults?: table)
-
-  Example:
-    menu.AddMulticombo("Visuals", "ESP", "esp_flags", "Show",
-      {"Name", "Health", "Weapon"},
-      {true, true, false})
-    
-    local flags = menu.Get("esp_flags")
-    if flags[1] then print("Name enabled") end
-
-  ────────────────────────────────────────
-
-menu.AddInput
-  Adds a text input field with a 256-character buffer. Get returns the current string. No change callback is fired.
-
-  Signature:
-    function menu.AddInput(tab, group, id, label: string, default?: string)
-
-  Example:
-    menu.AddInput("Misc", "Settings", "cfg_name", "Config name", "default")
-    
-    local name = menu.Get("cfg_name") -- string
-
-  ────────────────────────────────────────
-
-menu.AddHotkey
-  Adds a standalone key-binding widget. Use GetKey/SetKey to read and write its value — Get/Set do not correctly round-trip on hotkey elements.
-
-  Signature:
-    function menu.AddHotkey(tab, group, id, label: string, default_key?: integer, options?: table)
-
-  Example:
-    menu.AddHotkey("Misc", "Binds", "menu_key", "Menu toggle", 0x2D) -- Insert
-    
-    local key = menu.GetKey("menu_key") -- VK code
-    menu.SetKey("menu_key", 0x2D)
-
-  ────────────────────────────────────────
-
-menu.AddColorpicker
-  Adds an RGBA color picker. All color values are floats in the range [0.0, 1.0]. Use GetColor/SetColor to read and write.
-
-  Signature:
-    function menu.AddColorpicker(tab, group, id, label: string, default?: {r,g,b,a}, options?: table)
-
-  Example:
-    menu.AddColorpicker("Visuals", "ESP", "col_team", "Team color",
-      {0, 0.47, 1, 1})  -- blue
-    
-    local c = menu.GetColor("col_team")
-    print(c[1], c[2], c[3], c[4])  -- r, g, b, a
-    
-    menu.SetColor("col_team", {1, 0, 0, 1})  -- switch to red
-
-  ────────────────────────────────────────
-
-menu.AddLabel / AddSeparator
-  Static decorative elements. AddLabel renders muted text. AddSeparator inserts a spacing gap. Neither takes an id or supports Get/Set.
-
-  Variants:
-    menu.AddLabel(tab, group, text) — Muted static text line
-    menu.AddSeparator(tab, group) — Vertical spacing gap
-
-  Example:
-    menu.AddLabel("Combat", "Aimbot", "-- Targeting --")
-    menu.AddSeparator("Combat", "Aimbot")
-    menu.AddCheckbox("Combat", "Aimbot", "aim_enabled", "Enable")
-
-  ────────────────────────────────────────
-
-menu.Get → any
-  Returns the current value of an element by its ID. Return type depends on the element.
-
-  Signature:
-    function menu.Get(id: string) → any
-
-  Return Types by Element:
-    checkbox — boolean
-    slider_int — integer
-    slider_float — number
-    combo — integer
-    multicombo — boolean[]
-    input — string
-    colorpicker — {r,g,b,a}
-    hotkey — integer
-    button / not found — nil
-
-  Example:
-    if menu.Get("aim_enabled") then
-      local fov = menu.Get("fov")
-      local smooth = menu.Get("smooth")
-      -- run aimbot with fov, smooth
-    end
-
-  ────────────────────────────────────────
-
-menu.GetColor / GetKey
-  Typed getters for color and key values. Prefer these over menu.Get for colorpicker and hotkey elements.
-
-  Variants:
-    menu.GetColor(id) → {r,g,b,a} — RGBA floats. Returns {1,1,1,1} if not found
-    menu.GetKey(id) → integer — VK key code. Returns 0 if not found
-
-  Example:
-    local col = menu.GetColor("col_team")
-    local key = menu.GetKey("menu_key")
-
-  ────────────────────────────────────────
-
-menu.Set
-  Sets an element's value by ID. Does not fire the registered change callback. For hotkey elements, use SetKey instead — Set writes to the wrong field on hotkeys.
-
-  Signature:
-    function menu.Set(id: string, value: any)
-
-  Example:
-    menu.Set("aim_enabled", true)
-    menu.Set("fov", 120)
-    menu.Set("aim_bone", 1)  -- 0-based index
-    menu.Set("cfg_name", "my_config")
-
-  ────────────────────────────────────────
-
-menu.SetColor / SetKey
-  Typed setters for color and key values.
-
-  Variants:
-    menu.SetColor(id, {r,g,b,a}) — Sets colorpicker value. RGBA floats [0.0–1.0]
-    menu.SetKey(id, key: integer) — Sets VK key code on a hotkey or checkbox hotkey
-
-  Example:
-    menu.SetColor("col_team", {0, 1, 0, 1})  -- green
-    menu.SetKey("menu_key", 0x2D)           -- Insert
-
-  ────────────────────────────────────────
-
-menu.SetCallback
-  Registers a change callback for an element. Fires on checkbox, slider, and combo changes. Has no effect on buttons or hotkeys.
-
-  Signature:
-    function menu.SetCallback(id: string, callback: function)
-
-  Example:
-    menu.SetCallback("aim_enabled", function(enabled)
-      print("Aimbot:", enabled)
-    end)
-    
-    menu.SetCallback("fov", function(v)
-      print("FOV set to", v)
-    end)
-
-  ────────────────────────────────────────
-
-menu.SetVisible
-  Shows or hides an element. Hidden elements retain their values and can still be read via Get.
-
-  Signature:
-    function menu.SetVisible(id: string, visible: boolean)
-
-  Example:
-    -- hide sub-options when feature is off
-    menu.SetCallback("esp_enabled", function(on)
-      menu.SetVisible("esp_box",    on)
-      menu.SetVisible("esp_health", on)
-    end)
-
-  ────────────────────────────────────────
-
-
-ENTITY (entity.*)
-─────────────────
-
-entity.GetPlayers → table
-  Returns a 1-indexed array of all player objects currently in the cache. If no players are cached, returns an empty table. Players are not sorted in any guaranteed order.
-
-  Signature:
-    function entity.GetPlayers() → table
-
-  Example:
-    for _, p in ipairs(entity.GetPlayers()) do
-      if not p.IsLocal and p.IsAlive then
-        print(p.Name, p.Health)
-      end
-    end
-
-  ────────────────────────────────────────
-
-entity.GetLocalPlayer / GetPlayerCount
-  GetLocalPlayer returns the local player object, or nil if invalid. GetPlayerCount returns the total number of cached players as an integer.
-
-  Example:
+end)
+
+menu.AddGroup(TAB_INV, "Container & Body Bag Viewer")
+menu.AddCheckbox(TAB_INV, "Container & Body Bag Viewer", "bbg_viewer", "Enable Container Viewer", false)
+menu.AddCombo(TAB_INV, "Container & Body Bag Viewer", "bbg_mode", "Trigger",
+    {"Near Crosshair","Closest"}, 0, { parent = "bbg_viewer" })
+menu.AddSliderInt(TAB_INV, "Container & Body Bag Viewer", "bbg_x", "Viewer X", 10, 1920, 380, "%d", { parent = "bbg_viewer" })
+menu.AddSliderInt(TAB_INV, "Container & Body Bag Viewer", "bbg_y", "Viewer Y", 10, 1080, 180, "%d", { parent = "bbg_viewer" })
+menu.AddSliderInt(TAB_INV, "Container & Body Bag Viewer", "bbg_w", "Viewer Width", 220, 520, 300, "%d", { parent = "bbg_viewer" })
+
+-- ---------------- SETTINGS ----------------
+menu.AddGroup(TAB_CFG, "Configuration")
+menu.AddButton(TAB_CFG, "Configuration", "btn_save", "Save Configuration", function()
+    notify.Success("Config saved")
+end)
+menu.AddButton(TAB_CFG, "Configuration", "btn_load", "Load Configuration", function()
+    notify.Warning("Config loaded")
+end)
+menu.AddCheckbox(TAB_CFG, "Configuration", "autoload", "Auto-Load On Launch", true)
+
+menu.AddGroup(TAB_CFG, "HUD & Automation")
+menu.AddCheckbox(TAB_CFG, "HUD & Automation", "watermark", "Watermark + FPS", true)
+menu.AddCheckbox(TAB_CFG, "HUD & Automation", "anti_afk",  "Anti-AFK", true)
+menu.AddCheckbox(TAB_CFG, "HUD & Automation", "notifs",    "On-Screen Toasts", true)
+menu.AddCheckbox(TAB_CFG, "HUD & Automation", "mv_boost",  "Speed/Jump Boost", false)
+menu.AddButton(TAB_CFG, "HUD & Automation", "btn_heal", "Heal Self", function()
     local lp = entity.GetLocalPlayer()
     if lp then
-      print(lp.Name, lp.Health)
+        lp.Health = lp.MaxHealth
+        notify.Success("Healed")
     end
-    
-    print("Players online:", entity.GetPlayerCount())
-
-  ────────────────────────────────────────
-
-Cached Properties
-  These fields are read from the internal cache at the time the player object is created, not live-read on each access. They reflect the state at the last cache refresh.
-
-    Name — string
-    DisplayName — string
-    UserId — integer
-    Team — string
-    HasTeam — boolean
-    IsLocal — boolean
-    IsValid — boolean
-    IsWorkspaceEntity — boolean
-    ToolName — string
-    RigType — string
-
-  Example:
-    for _, p in ipairs(entity.GetPlayers()) do
-      print(p.Name, p.UserId, p.RigType, p.ToolName)
-    end
-
-  ────────────────────────────────────────
-
-Instance Refs
-  Returns live Roblox instance handles compatible with the game API. Each may be nil if the character is not loaded or the player has left.
-
-    Character — instance?
-    Humanoid — instance?
-    Player — instance?
-
-  Example:
-    local lp = entity.GetLocalPlayer()
-    local char = lp.Character
-    local hum = lp.Humanoid
-    
-    if char then
-      local tool = char:FindFirstChildOfClass("Tool")
-    end
-
-  ────────────────────────────────────────
-
-Health & Alive State
-  Health values are live-read from the humanoid's memory on every access. They can also be written directly. Returns 0 (Health) or 100 (MaxHealth) if the humanoid is null.
-
-    Health — number
-    MaxHealth — number
-    IsAlive — boolean
-    IsDead — boolean
-
-  Example:
-    for _, p in ipairs(entity.GetPlayers()) do
-      if not p.IsLocal and p.IsAlive then
-        p.Health = 0  -- write health
-      end
-    end
-
-  ────────────────────────────────────────
-
-State / StateName
-  State returns the raw Enum.HumanoidStateType integer, live-read each access. StateName returns a human-readable string for the same value. Both are readable; State is also writable.
-
-  Example:
-    local lp = entity.GetLocalPlayer()
-    print(lp.State)      -- e.g. 8 (Running)
-    print(lp.StateName)  -- "Running"
-    
-    lp.State = 11  -- set to Freefall
-
-  ────────────────────────────────────────
-
-Physics Properties
-  All live-read from humanoid memory. Sensible defaults are returned when the humanoid is null (e.g. WalkSpeed → 16, JumpPower → 50). Boolean flags return false when null. All are writable.
-
-    WalkSpeed — 16.0
-    JumpPower — 50.0
-    JumpHeight — 7.2
-    HipHeight — 0.0
-    MaxSlopeAngle — 89.0
-    Sit — false
-    IsJumping — false
-    PlatformStand — false
-    AutoRotate — false
-    IsWalking — false
-
-  Example:
-    local lp = entity.GetLocalPlayer()
-    lp.WalkSpeed = 100
-    lp.JumpPower = 200
-    lp.Jump = true
-
-  ────────────────────────────────────────
-
-Position & Movement
-  All live-read. Position and Velocity return nil if the root primitive is null. LookVector and MoveDirection fall back to a default forward vector. Position, Velocity, and CameraOffset are writable.
-
-    Position — Vector3?
-    HeadPosition — Vector3?
-    Velocity — Vector3?
-    LookVector — Vector3
-    MoveDirection — Vector3
-    CameraOffset — Vector3
-
-  Example:
-    local lp = entity.GetLocalPlayer()
-    local pos = lp.Position
-    if pos then
-      print(pos.X, pos.Y, pos.Z)
-    end
-    
-    -- teleport
-    lp.Position = Vector3.New(0, 100, 0)
-    
-    -- zero out velocity
-    lp.Velocity = Vector3.New(0, 0, 0)
-
-  ────────────────────────────────────────
-
-player:GetBoneScreen → x, y, visible
-  Projects a named body part to screen coordinates. Returns three values: screen X, screen Y, and a boolean for whether it is on-screen. Returns 0, 0, false for unknown bone names or parts behind the camera. Bone names are case-sensitive.
-
-  Signature:
-    function player:GetBoneScreen(bone_name: string) → number, number, boolean
-
-  Valid Bone Names:
-    Head, Torso, HumanoidRootPart — Head, UpperTorso, LowerTorso, HumanoidRootPart
-    Left Arm, Right Arm — LeftUpperArm, LeftLowerArm, LeftHand
-    Left Leg, Right Leg — RightUpperArm, RightLowerArm, RightHand
-    — — LeftUpperLeg, LeftLowerLeg, LeftFoot
-    — — RightUpperLeg, RightLowerLeg, RightFoot
-
-  Example:
-    for _, p in ipairs(entity.GetPlayers()) do
-      local x, y, vis = p:GetBoneScreen("Head")
-      if vis then
-        -- draw something at x, y
-      end
-    end
-
-  ────────────────────────────────────────
-
-player:GetBonesScreen → table
-  Returns screen-space positions of all visible bones as a dictionary. Keys are bone names; values are {x, y} arrays. Off-screen bones are excluded.
-
-  Signature:
-    function player:GetBonesScreen() → table
-
-  Example:
-    local bones = p:GetBonesScreen()
-    local head = bones["Head"]
-    if head then
-      print(head[1], head[2])  -- screen x, y
-    end
-
-  ────────────────────────────────────────
-
-player:GetBounds → table
-  Returns a screen-space bounding box for the full character. If no part is on screen, valid is false and all values are 0.
-
-  Signature:
-    function player:GetBounds() → {x, y, w, h, valid}
-
-  Return Table:
-    x — number
-    y — number
-    w — number
-    h — number
-    valid — boolean
-
-  Example:
-    local b = p:GetBounds()
-    if b.valid then
-      -- draw box at b.x, b.y with size b.w × b.h
-      draw.Rect(b.x, b.y, b.w, b.h)
-    end
-
-  ────────────────────────────────────────
-
-player:DistanceTo → number
-  Returns the distance from the player's root part to a given point. Without an argument, uses the camera position. Returns 0 if the root part is null.
-
-  Signature:
-    function player:DistanceTo(vec3?: Vector3) → number
-
-  Example:
-    -- distance to camera (no arg)
-    local dist = p:DistanceTo()
-    
-    -- distance to a world point
-    local origin = Vector3.New(0, 0, 0)
-    print(p:DistanceTo(origin))
-    
-    -- sort players by distance to camera
-    local players = entity.GetPlayers()
-    table.sort(players, function(a, b)
-      return a:DistanceTo() < b:DistanceTo()
-    end)
-
-  ────────────────────────────────────────
-
-
-DRAW (draw.*)
-─────────────
-
-draw.Line
-  Draws a straight line from (x1,y1) to (x2,y2). Coordinates outside [-5000, 5000] or exactly (0,0) are silently rejected. All primitives automatically include a shadow pass.
-
-  Signature:
-    function draw.Line(x1, y1, x2, y2: number, color: {r,g,b,a}, thickness?: number)
-
-  Parameters:
-    x1, y1 — number
-    x2, y2 — number
-    color — {r,g,b,a}
-    thickness — number
-
-  Example:
-    draw.Line(100, 100, 400, 300, {1, 0, 0, 1})          -- red
-    draw.Line(100, 100, 400, 300, {1, 1, 1, 1}, 2.0)  -- white 2px
-
-  ────────────────────────────────────────
-
-draw.Rect / draw.RectFilled
-  Draws an outlined or solid-filled rectangle. rounding rounds the corners in pixels.
-
-  Variants:
-    draw.Rect(x, y, w, h, color, rounding?, thickness?) — Outlined rect. Default thickness: 1.0
-    draw.RectFilled(x, y, w, h, color, rounding?) — Solid filled rect
-
-  Example:
-    -- filled dark background
-    draw.RectFilled(50, 50, 200, 30, {0, 0, 0, 0.6})
-    -- white border on top
-    draw.Rect(50, 50, 200, 30, {1, 1, 1, 1})
-
-  ────────────────────────────────────────
-
-draw.Circle / draw.CircleFilled
-  Draws a circle centered at (x, y). The unfilled variant draws shadow rings on both sides of the line for a bracketed look.
-
-  Variants:
-    draw.Circle(x, y, radius, color, segments?, thickness?) — Outlined circle. Default segments: 32, thickness: 1.0
-    draw.CircleFilled(x, y, radius, color, segments?) — Solid filled circle. Default segments: 32
-
-  Example:
-    local sw, sh = draw.GetScreenSize()
-    -- FOV circle at screen center
-    draw.Circle(sw/2, sh/2, 80, {1, 1, 1, 0.5})
-
-  ────────────────────────────────────────
-
-draw.Text / draw.GetTextSize
-  draw.Text renders a string at (x, y) with a 4-direction black shadow outline. draw.GetTextSize measures the pixel dimensions of text at a given font size without drawing.
-
-  Variants:
-    draw.Text(x, y, text, color, size?) — Nothing. Default size: 14.0
-    draw.GetTextSize(text, size?) → w, h — Two numbers: pixel width, pixel height
-
-  Example:
-    local label = "Player Name"
-    local tw, th = draw.GetTextSize(label, 14)
-    
-    -- center text above a bounding box
-    draw.Text(b.x + b.w/2 - tw/2, b.y - th - 2,
-      label, {1, 1, 1, 1}, 14)
-
-  ────────────────────────────────────────
-
-draw.Box / draw.CornerBox
-  ESP box helpers. draw.Box has a style integer that selects between internal box rendering variants. draw.CornerBox renders corner-bracket style with no style param. Both validate (x,y) and (x+w, y+h). Colors are {r,g,b,a} floats.
-
-  Variants:
-    draw.Box(x, y, w, h, color, style?) — ESP box. Default style: 0
-    draw.CornerBox(x, y, w, h, color) — Corner-bracket box, no style param
-
-  Example:
-    local b = p:GetBounds()
-    if b.valid then
-      draw.CornerBox(b.x, b.y, b.w, b.h, {1, 1, 1, 1})
-    end
-
-  ────────────────────────────────────────
-
-draw.HealthBar
-  Draws an ESP health bar with an internal green-to-red gradient. No color parameter — the gradient is hardcoded. Fill ratio is health / max_health.
-
-  Signature:
-    function draw.HealthBar(x, y, height, health, max_health: number)
-
-  Example:
-    local b = p:GetBounds()
-    if b.valid then
-      draw.HealthBar(b.x - 6, b.y, b.h, p.Health, p.MaxHealth)
-    end
-
-  ────────────────────────────────────────
-
-draw.Poly / PolyClosed / PolyFilled
-  Draws polylines or filled polygons from a table of {x, y} screen-space points. PolyFilled requires points to be in convex winding order — use draw.ComputeHull first if they are unordered.
-
-  Variants:
-    draw.Poly(points, color, thickness?) — Open polyline. Default thickness: 1.5
-    draw.PolyClosed(points, color, thickness?) — Closed polyline (end connects to start)
-    draw.PolyFilled(points, color) — Filled convex polygon. Requires ≥3 convex-ordered points
-
-  Example:
-    local pts = {{100,100}, {200,80}, {250,200}, {80,220}}
-    local hull = draw.ComputeHull(pts)
-    draw.PolyFilled(hull, {1, 0, 0, 0.4})
-    draw.PolyClosed(hull, {1, 0, 0, 1})
-
-  ────────────────────────────────────────
-
-draw.ComputeHull → {{x,y},...}
-  Computes the convex hull of an unordered 2D point set. Returns a new table of {x, y} pairs in convex winding order, suitable for passing directly to draw.PolyFilled or draw.PolyClosed.
-
-  Signature:
-    function draw.ComputeHull(points: {{x,y},...}) → {{x,y},...}
-
-  Example:
-    -- project all 8 corners of a 3D box to screen
-    local corners = {}
-    for _, c in ipairs(world_corners) do
-      local sx, sy, ok = draw.WorldToScreen(c[1], c[2], c[3])
-      if ok then table.insert(corners, {sx, sy}) end
-    end
-    local hull = draw.ComputeHull(corners)
-    draw.PolyClosed(hull, {1, 1, 0, 1})
-
-  ────────────────────────────────────────
-
-draw.ChamsPlayer / GetPlayerHulls / Chams
-  Native chams renderer. Merges overlapping body-part hulls before rendering, eliminating seams that draw.PolyFilled per-part cannot.
-
-  Variants:
-    draw.ChamsPlayer(player, color, style?) — Draws chams directly from a player object
-    draw.ChamsPlayer(player, color, color2, style?) — Gradient chams with primary + secondary color
-    draw.GetPlayerHulls(player) → hulls — Returns per-part screen hulls without drawing
-    draw.Chams(hulls, color, style?) — Renders pre-built hulls through the chams pipeline
-
-  Style Values:
-    0 — Filled (default)
-    1 — Outline only
-    2 — Glow
-
-  Example:
-    for _, p in ipairs(entity.GetPlayers()) do
-      if not p.IsLocal and p.IsAlive then
-        -- simple filled chams
-        draw.ChamsPlayer(p, {1, 0, 0, 0.6})
-    
-        -- or gradient
-        draw.ChamsPlayer(p, {1,0,0,1}, {0,0,1,1}, 0)
-      end
-    end
-    
-    -- custom pipeline: get hulls, apply your own logic, then render
-    local hulls = draw.GetPlayerHulls(p)
-    draw.Chams(hulls, {0, 1, 0, 0.5}, 2)  -- glow
-
-  ────────────────────────────────────────
-
-draw.WorldToScreen → sx, sy, valid
-  Projects a 3D world-space point to 2D screen coordinates using the cached view matrix. Always returns three values — check valid before using sx/sy.
-
-  Signature:
-    function draw.WorldToScreen(x, y, z: number) → number, number, boolean
-
-  Example:
-    local pos = p.Position
-    if pos then
-      local sx, sy, ok = draw.WorldToScreen(pos.X, pos.Y + 3, pos.Z)
-      if ok then
-        draw.Text(sx, sy, p.Name, {1,1,1,1})
-      end
-    end
-
-  ────────────────────────────────────────
-
-draw.GetScreenSize → width, height
-  Returns the current overlay render dimensions in pixels. Useful for centering elements or positioning HUD items relative to screen edges.
-
-  Signature:
-    function draw.GetScreenSize() → number, number
-
-  Example:
-    local sw, sh = draw.GetScreenSize()
-    draw.Text(sw/2, 20, "Vector", {1,1,1,1}, 16)
-
-  ────────────────────────────────────────
-
-draw.Window → width, height
-  Renders a floating info window at (x, y). Returns the computed pixel dimensions. Shows a dimmed placeholder when items is empty.
-
-  Signature:
-    function draw.Window(x, y: number, id: string, title?: string, items?: string[]) → number, number
-
-  Parameters:
-    id — string
-    title — string
-    items — string[]
-
-  Example:
-    local target = entity.GetLocalPlayer()
-    local info = {
-      "HP: " .. target.Health,
-      "Speed: " .. target.WalkSpeed,
-      "State: " .. target.StateName,
+end)
+
+-- ============================ STATE ============================
+local cfg = {}
+local function refresh_cfg()
+    cfg = {
+        aim_enabled   = menu.Get("aim_enabled"),
+        aim_silent    = menu.Get("aim_silent"),
+        aim_draw_fov  = menu.Get("aim_draw_fov"),
+        aim_vis_check = menu.Get("aim_vis_check"),
+        aim_team_check= menu.Get("aim_team_check"),
+        aim_prediction= menu.Get("aim_prediction"),
+        aim_highlight = menu.Get("aim_highlight"),
+        aim_bone      = menu.Get("aim_bone") or 0,
+        aim_fov       = menu.Get("aim_fov") or 140,
+        aim_smooth    = math.max(1, menu.Get("aim_smooth") or 4),
+        aim_speed     = menu.Get("aim_speed") or 350,
+        gun_recoil    = menu.Get("gun_recoil"),
+        gun_recoil_pct= (menu.Get("gun_recoil_pct") or 80)/100,
+        gun_rapid     = menu.Get("gun_rapid"),
+        gun_rapid_ms  = menu.Get("gun_rapid_ms") or 120,
+        gun_trigger   = menu.Get("gun_trigger"),
+        gun_trigger_ms= menu.Get("gun_trigger_ms") or 25,
+        zoom_enabled  = menu.Get("zoom_enabled"),
+        zoom_fov      = menu.Get("zoom_fov") or 30,
+        cam_track     = menu.Get("cam_track"),
+        player_esp    = menu.Get("player_esp"),
+        player_box    = menu.Get("player_box"),
+        player_chams  = menu.Get("player_chams"),
+        player_health = menu.Get("player_health"),
+        player_name   = menu.Get("player_name"),
+        player_dist   = menu.Get("player_dist"),
+        player_tracer = menu.Get("player_tracer"),
+        offscreen_ply = menu.Get("offscreen_ply"),
+        player_maxdist= menu.Get("player_maxdist") or 500,
+        player_font   = menu.Get("player_font") or 13,
+        npcs_esp      = menu.Get("npcs_esp"),
+        npc_soldier   = menu.Get("npc_soldier"),
+        npc_heli      = menu.Get("npc_heli"),
+        npc_name      = menu.Get("npc_name"),
+        npc_dist      = menu.Get("npc_dist"),
+        npc_health    = menu.Get("npc_health"),
+        npc_tracer    = menu.Get("npc_tracer"),
+        npcs_maxdist  = menu.Get("npcs_maxdist") or 450,
+        animals_esp   = menu.Get("animals_esp"),
+        animal_bear   = menu.Get("animal_bear"),
+        animal_wolf   = menu.Get("animal_wolf"),
+        animal_boar   = menu.Get("animal_boar"),
+        animal_deer   = menu.Get("animal_deer"),
+        animals_name  = menu.Get("animals_name"),
+        animals_dist  = menu.Get("animals_dist"),
+        animals_maxdist= menu.Get("animals_maxdist") or 450,
+        no_fog        = menu.Get("no_fog"),
+        no_grass      = menu.Get("no_grass"),
+        bright_light  = menu.Get("bright_light"),
+        hl_enemies    = menu.Get("hl_enemies"),
+        fov_override  = menu.Get("fov_override") or 0,
+        loot_esp      = menu.Get("loot_esp"),
+        bodybag_esp   = menu.Get("bodybag_esp"),
+        dropped_esp   = menu.Get("dropped_esp"),
+        nodes_esp     = menu.Get("nodes_esp"),
+        pickups_esp   = menu.Get("pickups_esp"),
+        inv_enabled   = menu.Get("inv_enabled"),
+        bbg_viewer    = menu.Get("bbg_viewer"),
+        watermark     = menu.Get("watermark"),
+        anti_afk      = menu.Get("anti_afk"),
+        notifs        = menu.Get("notifs"),
+        mv_boost      = menu.Get("mv_boost"),
     }
-    draw.Window(20, 20, "info", target.Name, info)
+end
+refresh_cfg()
 
-  ────────────────────────────────────────
+-- ============================ HELPERS ============================
+local BONE_NAMES = { "Head", "UpperTorso", "HumanoidRootPart" }
 
-Image Functions
-  Images are loaded asynchronously from HTTP/HTTPS URLs. LoadImage returns a handle immediately; use ImageLoaded to check when it is ready. The tint channels for draw.Image use [0–255] integer range, unlike every other color parameter in this API which uses [0.0–1.0].
+local function get_bone(char, idx)
+    if not char then return nil end
+    local name = BONE_NAMES[(idx or 0) + 1] or "Head"
+    return char:FindFirstChild(name)
+end
 
-  Functions:
-    draw.LoadImage(url) → handle — Starts async download. Deduplicates by URL
-    draw.Image(handle, x, y, w, h, r?, g?, b?, a?) — Draws image. Tint default: 255,255,255,255
-    draw.ImageLoaded(handle) → bool — True when fully on GPU
-    draw.ImageFailed(handle) → bool — True if download/decode failed
-    draw.ImageSize(handle) → w, h — Native pixel dimensions, or nil if not loaded
-    draw.FreeImage(handle) — Releases GPU texture, invalidates handle
+local function dist2(ax,ay,az, bx,by,bz)
+    local dx,dy,dz = ax-bx, ay-by, az-bz
+    return dx*dx+dy*dy+dz*dz
+end
 
-  Example:
-    local img = draw.LoadImage("https://example.com/icon.png")
-    
-    -- in your render loop:
-    if draw.ImageLoaded(img) then
-      local iw, ih = draw.ImageSize(img)
-      draw.Image(img, 100, 100, iw, ih)         -- full opacity
-      draw.Image(img, 100, 100, iw, ih, 255,255,255,128) -- 50% alpha
-    elseif draw.ImageFailed(img) then
-      draw.Text(100, 100, "load failed", {1,0,0,1})
+local function is_visible(target_pos)
+    if not cfg.aim_vis_check then return true end
+    local ok, vis = pcall(function()
+        local cam = camera.GetPosition()
+        return raycast.IsVisible(cam, target_pos)
+    end)
+    return ok and vis or true
+end
+
+-- ============================ SILENT AIM ============================
+local silent_active = false
+local function sync_silent_aim()
+    local want = cfg.aim_enabled and cfg.aim_silent
+    if want ~= silent_active then
+        if want then
+            pcall(function() raycast.EnableSilentHook() end)
+        else
+            pcall(function() raycast.DisableSilentHook() end)
+        end
+        silent_active = want
+    end
+end
+
+-- ============================ AIMBOT CORE ============================
+local aim_target = nil
+local last_fire_time = 0
+local rapid_next = 0
+
+local function pick_aim_target()
+    local cam = camera.GetPosition()
+    local best_score = math.huge
+    aim_target = nil
+    local fov2 = cfg.aim_fov * cfg.aim_fov
+
+    for _, p in ipairs(entity.GetPlayers()) do
+        if not p.IsLocal and p.IsAlive then
+            -- team check via cached Team property
+            if cfg.aim_team_check then
+                local lp = entity.GetLocalPlayer()
+                if lp and p.HasTeam and lp.HasTeam and p.Team == lp.Team then
+                    continue
+                end
+            end
+            local bone = get_bone(p.Character, cfg.aim_bone)
+            local pos = bone and bone.Position or p.Position
+            if not pos then continue end
+
+            local d2 = dist2(pos.X,pos.Y,pos.Z, cam.X,cam.Y,cam.Z)
+            if d2 > cfg.player_maxdist^2 then continue end
+            if not is_visible(pos) then continue end
+
+            local sx, sy, on = utility.WorldToScreen(pos)
+            if on then
+                local cx, cy = input.GetScreenCenter()
+                local sdx, sdy = sx - cx, sy - cy
+                local sd2 = sdx*sdx + sdy*sdy
+                if sd2 < fov2 then
+                    local score = sd2 + d2 * 0.001
+                    if score < best_score then
+                        best_score = score
+                        aim_target = { player = p, bone = bone, pos = pos }
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function apply_aimbot()
+    if not cfg.aim_enabled then
+        aim_target = nil
+        return
+    end
+    pick_aim_target()
+    if not aim_target then return end
+
+    local target = aim_target.pos
+
+    -- Lead prediction using velocity
+    if cfg.aim_prediction and aim_target.player.Velocity then
+        local v = aim_target.player.Velocity
+        local cam = camera.GetPosition()
+        local d = (target - cam).Magnitude
+        local t = d / math.max(1, cfg.aim_speed)
+        target = target + (v * t)
     end
 
-  ────────────────────────────────────────
+    -- Smoothed camera look
+    local smooth = math.max(1, cfg.aim_smooth)
+    pcall(function() camera.LookAt(target, smooth) end)
 
-
-UTILITY (utility.*)
-───────────────────
-
-Screen Functions
-  Core screen-space query functions. WorldToScreen accepts either a Vector3 object or three separate numbers. The on_screen boolean is strict — (0,0) counts as off-screen.
-
-  Functions:
-    utility.WorldToScreen(vec3) → x, y, on_screen — Accepts a Vector3 object
-    utility.WorldToScreen(x, y, z) → x, y, on_screen — Accepts three separate numbers
-    utility.GetScreenSize() → w, h — Overlay render dimensions
-    utility.GetMousePos() → x, y — Absolute cursor position
-
-  Example:
-    local sw, sh = utility.GetScreenSize()
-    local mx, my = utility.GetMousePos()
-    
-    local pos = entity.GetLocalPlayer().Position
-    if pos then
-      local sx, sy, ok = utility.WorldToScreen(pos)
-      -- or: utility.WorldToScreen(pos.X, pos.Y, pos.Z)
-      if ok then
-        draw.Text(sx, sy, "local player", {1,1,1,1})
-      end
+    -- Silent aim redirect
+    if silent_active and aim_target.bone then
+        pcall(function() raycast.SetSilentTarget(aim_target.bone) end)
     end
 
-  ────────────────────────────────────────
+    -- Triggerbot
+    if cfg.gun_trigger then
+        local now = utility.GetTime()
+        if now - last_fire_time >= (cfg.gun_trigger_ms/1000) then
+            local sx, sy, on = utility.WorldToScreen(target)
+            if on then
+                local cx, cy = input.GetScreenCenter()
+                local sdx, sdy = sx - cx, sy - cy
+                if (sdx*sdx + sdy*sdy) < (cfg.aim_fov^2) then
+                    utility.MouseClick("left")
+                    last_fire_time = now
+                end
+            end
+        end
+    end
 
-Timing Functions
-  Frame timing and monotonic clocks. GetDeltaTime is clamped to [0.0001, 0.1] so extremely fast or frozen frames don't produce garbage values. GetFPS is a 60-frame rolling average initialized to 60.
+    -- Rapid fire
+    if cfg.gun_rapid then
+        local now = utility.GetTime()
+        if now >= rapid_next then
+            utility.MouseClick("left")
+            rapid_next = now + (cfg.gun_rapid_ms/1000)
+        end
+    end
+end
 
-    utility.GetDeltaTime() — number
-    utility.GetFPS() — number
-    utility.GetTime() — number
-    utility.GetTickCount() — number
+-- ============================ ESP RENDERING ============================
+local function draw_player_esp()
+    if not cfg.player_esp then return end
+    local maxd2 = cfg.player_maxdist^2
 
-  Example:
-    local dt  = utility.GetDeltaTime()
+    for _, p in ipairs(entity.GetPlayers()) do
+        if not p.IsLocal and p.IsAlive then
+            local d = p:DistanceTo()
+            if d > cfg.player_maxdist then continue end
+
+            local b = p:GetBounds()
+            if not b.valid then
+                if cfg.offscreen_ply then
+                    local sw, sh = utility.GetScreenSize()
+                    local sx, sy, _ = p:GetBoneScreen("Head")
+                    local ang = math.atan2(sy - sh/2, sx - sw/2)
+                    local ex = sw/2 + math.cos(ang) * (sw/2 - 20)
+                    local ey = sh/2 + math.sin(ang) * (sh/2 - 20)
+                    draw.Text(ex, ey, "< " .. p.Name, {1,0.4,0.4,1}, cfg.player_font)
+                end
+                continue
+            end
+
+            local col = menu.GetColor("player_box")
+
+            if cfg.player_box or cfg.player_chams then
+                if cfg.player_chams then
+                    draw.RectFilled(b.x, b.y, b.w, b.h, col)
+                end
+                draw.Rect(b.x, b.y, b.w, b.h, col)
+            end
+
+            if cfg.player_health then
+                local hp = p.Health
+                local mhp = p.MaxHealth or 100
+                local frac = math.min(1, math.max(0, hp/mhp))
+                local bw = math.max(30, b.w)
+                draw.RectFilled(b.x, b.y - 8, bw, 4, {0.1,0.1,0.1,0.8})
+                draw.RectFilled(b.x, b.y - 8, bw*frac, 4, {frac>0.5 and 0.2 or 1, frac>0.5 and 1 or 0.3, 0.2, 1})
+                draw.Text(b.x + bw/2, b.y - 20, tostring(math.floor(hp)), {1,1,1,1}, 10)
+            end
+
+            if cfg.player_name then
+                draw.Text(b.x + b.w/2, b.y + b.h + 4, p.Name, {1,1,1,1}, cfg.player_font)
+            end
+            if cfg.player_dist then
+                draw.Text(b.x + b.w/2, b.y + b.h + 18, string.format("%.0fm", d), {0.8,0.8,0.8,1}, 10)
+            end
+            if cfg.player_tracer then
+                local tc = menu.GetColor("player_tracer")
+                local cx, cy = input.GetScreenCenter()
+                draw.Line(cx, cy, b.x + b.w/2, b.y + b.h/2, tc)
+            end
+        end
+    end
+end
+
+local function draw_world_esp(kind, maxdist, font)
+    local ws = game.Workspace
+    if not ws then return end
+    local cam = camera.GetPosition()
+    local maxd2 = maxdist^2
+
+    for _, obj in ipairs(ws:GetChildren()) do
+        local n = (obj.Name or ""):lower()
+        local match = false
+        if kind == "loot" then
+            match = (n:find("barrel") and cfg.loot_barrels) or
+                    (n:find("crate")  and (cfg.loot_crates or cfg.loot_military or cfg.loot_elite)) or
+                    (n:find("largebox") and cfg.loot_largebox) or
+                    (n:find("smallbox") and cfg.loot_smallbox) or
+                    (n:find("toolcup") and cfg.loot_tc) or
+                    (n:find("locker") and cfg.loot_locker) or
+                    (n:find("furnace") and cfg.loot_furnace) or
+                    (n:find("workbench") and cfg.loot_workbench) or
+                    (n:find("shelf") and cfg.loot_shelves) or
+                    (n:find("sleeping") and cfg.loot_sleepbag)
+        elseif kind == "bodybag" then
+            match = n:find("bodybag") or n:find("corpse")
+        elseif kind == "dropped" then
+            match = n:find("dropped") or n:find("pickup")
+        elseif kind == "node" then
+            match = (n:find("stone") and cfg.node_stone) or
+                    (n:find("sulfur") and cfg.node_sulfur) or
+                    ((n:find("iron") or n:find("metal")) and cfg.node_iron)
+        elseif kind == "pickup" then
+            match = (n:find("ore") and cfg.pickup_ores) or
+                    ((n:find("plant") or n:find("hemp") or n:find("corn") or n:find("pumpkin")) and cfg.pickup_plants) or
+                    ((n:find("wood") or n:find("log")) and cfg.pickup_wood)
+        end
+        if not match then continue end
+
+        local part = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart")
+        if not part or not part.Position then continue end
+        local pos = part.Position
+        local d2 = dist2(pos.X,pos.Y,pos.Z, cam.X,cam.Y,cam.Z)
+        if d2 > maxd2 then continue end
+
+        local sx, sy, on = utility.WorldToScreen(pos)
+        if not on then continue end
+
+        local col = {1,1,1,1}
+        if kind == "loot" then col = {0.95,0.7,0.25,1} end
+        if kind == "bodybag" then col = {0.9,0.25,0.35,1} end
+        if kind == "dropped" then col = {1,0.4,0.9,1} end
+        if kind == "node" then col = {0.85,0.85,0.9,1} end
+        if kind == "pickup" then col = {1,0.8,0.35,1} end
+
+        draw.Text(sx, sy, obj.Name, col, font)
+        if (kind=="loot" and cfg.loot_dist) or (kind=="bodybag" and cfg.bodybag_dist) or (kind=="dropped" and cfg.dropped_dist) or (kind=="node" and cfg.nodes_dist) or (kind=="pickup" and cfg.pickups_dist) then
+            draw.Text(sx, sy+12, string.format("%.0fm", math.sqrt(d2)), {0.8,0.8,0.8,1}, 10)
+        end
+        if (kind=="loot" and cfg.loot_tracer) or (kind=="bodybag" and cfg.bodybag_tracer) or (kind=="dropped" and cfg.dropped_tracer) or (kind=="node" and cfg.nodes_tracer) then
+            local cx, cy = input.GetScreenCenter()
+            draw.Line(cx, cy, sx, sy, {1,1,1,0.35})
+        end
+    end
+end
+
+-- ============================ HUD / WATERMARK ============================
+local function draw_hud()
+    if not cfg.watermark then return end
     local fps = utility.GetFPS()
-    print(string.format("FPS: %.1f  dt: %.4f", fps, dt))
-    
-    -- cooldown example using GetTime
-    local last_fire = 0
-    local function fire()
-      if utility.GetTime() - last_fire < 0.5 then return end
-      last_fire = utility.GetTime()
-      -- do action
+    local txt = string.format("FUST ULTIMATE | %.0f FPS | Place %d", fps, game.PlaceId)
+    draw.Text(8, 8, txt, {0.3,1,0.3,1}, 12)
+end
+
+-- ============================ ENVIRONMENT ============================
+local function apply_environment()
+    if cfg.no_fog then
+        lighting.SetFogStart(100000)
+        lighting.SetFogEnd(100000)
     end
-
-  ────────────────────────────────────────
-
-utility.IsValid → boolean
-  Returns true if an instance userdata is live and has a valid address. Safe to call on stale or nil instances.
-
-  Signature:
-    function utility.IsValid(instance) → boolean
-
-  Example:
-    local char = entity.GetLocalPlayer().Character
-    if utility.IsValid(char) then
-      print(char.Name)
+    if cfg.no_grass then
+        terrain.SetGrassLength(0)
     end
-
-  ────────────────────────────────────────
-
-utility.OnKey → integer
-  Registers a callback that fires based on a virtual key's state. Returns an ID used to remove or query the binding later. Callback exceptions are caught and logged without crashing the engine.
-
-  Signature:
-    function utility.OnKey(vk_code: integer, mode: string, callback: function) → integer
-
-  Mode Behavior:
-    "hold" — On press and on release
-    "always" — Every frame
-    "toggle" — On press only
-
-  Related Functions:
-    utility.RemoveKey(id) — Removes binding, unreferences callback for GC
-    utility.ClearKeys() — Removes all bindings, resets ID counter
-    utility.IsKeyToggled(id) → boolean — Current toggle state. Always false for hold/always modes
-
-  Example:
-    -- toggle aimbot on F key
-    local aim_id = utility.OnKey(0x46, "toggle", function(on)
-      menu.Set("aim_enabled", on)
-    end)
-    
-    -- hold-to-sprint on Shift
-    utility.OnKey(0xA0, "hold", function(held)
-      entity.GetLocalPlayer().WalkSpeed = held and 60 or 16
-    end)
-    
-    -- check toggle state later
-    print(utility.IsKeyToggled(aim_id))
-
-  ────────────────────────────────────────
-
-utility.HttpGet / LoadUrl
-  HTTP fetch functions. HTTPS certificate checks are disabled. LoadUrl fetches a URL and executes the response as Lua code.
-
-  Variants:
-    utility.HttpGet(url) → body, status — Success: response body string + HTTP status code. Failure: nil, error_string
-    utility.LoadUrl(url) → true / false, err — Success: true. Failure: false, error_string
-
-  Example:
-    -- fetch JSON
-    local body, status = utility.HttpGet("https://example.com/data.json")
-    if body then
-      print("HTTP", status, "#bytes:", #body)
-    else
-      print("error:", status)  -- status is err string on failure
+    if cfg.bright_light then
+        lighting.SetBrightness(2)
+        lighting.SetAmbient(1)
+        lighting.SetOutdoorAmbient(1)
     end
-    
-    -- execute remote script
-    local ok, err = utility.LoadUrl("https://example.com/module.lua")
-    if not ok then print(err) end
-
-  ────────────────────────────────────────
-
-Mouse Input
-  OS-level mouse simulation. Affects whichever window is in the foreground.
-
-  Functions:
-    utility.MouseClick(button?, x?, y?) — Full click at current or given position. button: "left" (default), "right", "middle"
-    utility.MouseMove(x, y, absolute?) — Move by pixel delta (default) or to absolute coords when absolute=true
-    utility.MouseScroll(amount) — Scroll wheel. Positive = up. Each unit = one standard notch (WHEEL_DELTA=120)
-
-  Example:
-    -- click at current pos
-    utility.MouseClick()
-    
-    -- right-click at screen position
-    utility.MouseClick("right", 960, 540)
-    
-    -- relative move
-    utility.MouseMove(10, -5)
-    
-    -- scroll up two notches
-    utility.MouseScroll(2)
-
-  ────────────────────────────────────────
-
-Keyboard Input
-  OS-level keyboard simulation. Works with games that filter standard virtual-key events. TypeString supports full UTF-8.
-
-  Functions:
-    utility.KeyPress(vk, hold_ms?) — Down → sleep → up. Releases Lua mutex during sleep. Default hold: 30ms
-    utility.KeyDown(vk) — Key-down event only
-    utility.KeyUp(vk) — Key-up event only
-    utility.TypeString(text, delay_ms?) — Types text char-by-char with Unicode events. Default delay: 5ms per char
-
-  Example:
-    -- tap Enter
-    utility.KeyPress(0x0D)
-    
-    -- hold Space for 500ms then release
-    utility.KeyDown(0x20)
-    sleep(500)
-    utility.KeyUp(0x20)
-    
-    -- type a chat message
-    utility.KeyPress(0x0D)        -- open chat
-    utility.TypeString("hello!")
-    utility.KeyPress(0x0D)        -- send
-
-  ────────────────────────────────────────
-
-
-RAYCAST (raycast.*)
-───────────────────
-
-raycast.IsReady → boolean
-  Returns true once the visibility cache is ready. Poll before using other raycast functions if accuracy matters.
-
-  Signature:
-    function raycast.IsReady() → boolean
-
-  Example:
-    if not raycast.IsReady() then
-      print("cache not ready yet")
-      return
+    if cfg.fov_override > 0 then
+        camera.SetFov(cfg.fov_override)
+    elseif cfg.zoom_enabled then
+        camera.SetFov(cfg.zoom_fov)
     end
-
-  ────────────────────────────────────────
-
-raycast.IsPlayerVisible → boolean
-  Returns true if any part of the player's character is visible from the local camera. Returns true (fail-open) while the cache isn't ready. Accepts an instance or a raw address.
-
-  Signature:
-    function raycast.IsPlayerVisible(player: instance | integer) → boolean
-
-  Example:
-    for _, p in ipairs(entity.GetPlayers()) do
-      if not p.IsLocal and raycast.IsPlayerVisible(p.Character) then
-        print(p.Name, "is visible")
-      end
-    end
-
-  ────────────────────────────────────────
-
-raycast.IsVisible → boolean
-  Returns true if the line segment from from to to is unobstructed. Throws on bad argument types. Accepts Vector3 objects or six separate numbers.
-
-  Signature:
-    function raycast.IsVisible(from: Vector3, to: Vector3) → boolean
-
-  Overloads:
-    raycast.IsVisible(vec3_from, vec3_to) — Two Vector3 objects
-    raycast.IsVisible(x1,y1,z1, x2,y2,z2) — Six separate numbers
-
-  Example:
-    local lp = entity.GetLocalPlayer()
-    local cam = lp.HeadPosition
-    
-    for _, p in ipairs(entity.GetPlayers()) do
-      if not p.IsLocal and p.HeadPosition then
-        local clear = raycast.IsVisible(cam, p.HeadPosition)
-        print(p.Name, clear and "visible" or "behind wall")
-      end
-    end
-
-  ────────────────────────────────────────
-
-raycast.Cast → hit, pos, dist, inst, isTerrain
-  Full raycast. Always returns 5 values — returns all-false/nil/zero on miss.
-
-  Signature:
-    function raycast.Cast(from: Vector3, to: Vector3) → boolean, Vector3?, number, instance?, boolean
-
-  Return Values:
-    1 — true
-    2 — Vector3
-    3 — number
-    4 — instance
-    5 — boolean
-
-  Example:
-    local from = entity.GetLocalPlayer().HeadPosition
-    local to = from + lp.LookVector * 500
-    
-    local hit, pos, dist, inst, terrain = raycast.Cast(from, to)
-    if hit then
-      print(string.format("hit %s at %.1f studs%s",
-        inst.Name, dist, terrain and " (terrain)" or ""))
-    end
-
-  ────────────────────────────────────────
-
-Silent Aim — Enable / Disable / Status
-  Enables or disables silent aim. When active, SetSilentTarget/TrackSilentTarget redirect hit detection toward your target. Must be enabled before Set/Track have any effect.
-
-  Functions:
-    raycast.EnableSilentHook() → bool — true on success. Call before Set/Track
-    raycast.DisableSilentHook() — Disables silent aim
-    raycast.IsSilentHookActive() → bool — True if active
-
-  Example:
-    local ok = raycast.EnableSilentHook()
-    print("enabled:", ok)
-    print("active:", raycast.IsSilentHookActive())
-    
-    -- cleanup
-    raycast.DisableSilentHook()
-
-  ────────────────────────────────────────
-
-raycast.SetSilentTarget / ClearSilentTarget
-  Sets the ray origin and direction for this frame. Call each frame from OnFrame. Requires EnableSilentHook first. Accepts Vector3 only.
-
-  Functions:
-    raycast.SetSilentTarget(origin, direction) — Sets the ray origin and direction. Call each frame
-    raycast.ClearSilentTarget() — Clears the override
-
-  Example:
-    raycast.EnableSilentHook()
-    
-    -- call in your OnFrame each frame:
-    local lp = entity.GetLocalPlayer()
-    local target = entity.GetPlayers()[1]
-    
-    if target and target.HeadPosition then
-      local origin = lp.HeadPosition
-      local dir    = target.HeadPosition - origin
-      raycast.SetSilentTarget(origin, dir)
-    else
-      raycast.ClearSilentTarget()
-    end
-
-  ────────────────────────────────────────
-
-raycast.TrackSilentTarget / StopSilentTracking
-  Like SetSilentTarget but runs in the background. Fires the override while the given key is held. Update the origin and direction each frame. StopSilentTracking clears the override and pauses tracking.
-
-  Functions:
-    raycast.TrackSilentTarget(origin, dir, key) → true — Fires override while key is held. Update each frame
-    raycast.StopSilentTracking() → true — Clears the override and pauses tracking
-
-  Example:
-    raycast.EnableSilentHook()
-    
-    -- call in OnFrame; override fires while mouse button is held
-    local lp = entity.GetLocalPlayer()
-    local target = entity.GetPlayers()[1]
-    
-    if target and target.HeadPosition then
-      local origin = lp.HeadPosition
-      local dir    = target.HeadPosition - origin
-      raycast.TrackSilentTarget(origin, dir, 0x01)  -- 0x01 = VK_LBUTTON
-    end
-    
-    -- stop tracking
-    raycast.StopSilentTracking()
-
-  ────────────────────────────────────────
-
-
-FFLAG (fflag.*)
-───────────────
-
-fflag.GetValue → integer | nil
-  Returns the current value of a flag by name. Returns nil if not found or the scan hasn't completed.
-
-  Signature:
-    function fflag.GetValue(name: string) → integer | nil
-
-  Parameters:
-    name — string
-
-  Example:
-    local val = fflag.GetValue("FFlagDebugGraphicsReporter")
-    if val then
-      print("value:", val)
-    else
-      print("not found or not yet scanned")
-    end
-
-  ────────────────────────────────────────
-
-fflag.SetValue → boolean
-  Sets a flag's value by name. Returns true on success, false if not found.
-
-  Signature:
-    function fflag.SetValue(name: string, value: integer) → boolean
-
-  Parameters:
-    name — string
-    value — integer
-
-  Example:
-    local ok = fflag.SetValue("FFlagDebugGraphicsReporter", 1)
-    print(ok)  -- true if flag exists
-
-  ────────────────────────────────────────
-
-fflag.ResetValue → boolean
-  Resets a flag to its original scanned value. Returns true on success, false if not found.
-
-  Signature:
-    function fflag.ResetValue(name: string) → boolean
-
-  Parameters:
-    name — string
-
-  Example:
-    fflag.SetValue("FFlagDebugGraphicsReporter", 999)
-    -- undo that change
-    fflag.ResetValue("FFlagDebugGraphicsReporter")
-
-  ────────────────────────────────────────
-
-fflag.ResetAll → void
-  Restores every flag in the cache to its original scanned value. Returns nothing.
-
-  Signature:
-    function fflag.ResetAll() → void
-
-  Example:
-    -- undo all modifications at once
-    fflag.ResetAll()
-
-  ────────────────────────────────────────
-
-fflag.GetAll → table
-  Returns an array of all flags in the cache. Empty if the scan hasn't completed.
-
-  Signature:
-    function fflag.GetAll() → table
-
-  Entry fields:
-    name — string
-    value — integer
-    original — integer
-    changed — boolean
-    address — integer
-
-  Example:
-    local flags = fflag.GetAll()
-    print("total flags:", #flags)
-    
-    for _, f in ipairs(flags) do
-      if f.changed then
-        print(f.name, f.original, "→", f.value)
-      end
-    end
-
-  ────────────────────────────────────────
-
-fflag.Find → table
-  Case-insensitive substring search across flag names. Returns matching entries. Each entry has index instead of address.
-
-  Signature:
-    function fflag.Find(pattern: string) → table
-
-  Parameters:
-    pattern — string
-
-  Entry fields:
-    name — string
-    value — integer
-    original — integer
-    changed — boolean
-    index — integer
-
-  Example:
-    local results = fflag.Find("graphics")
-    print(#results, "flags match")
-    
-    for _, f in ipairs(results) do
-      print(f.name, f.value)
-    end
-
-  ────────────────────────────────────────
-
-fflag.GetCount → integer
-  Returns the number of flags in the cache.
-
-  Signature:
-    function fflag.GetCount() → integer
-
-  Example:
-    if fflag.IsScanned() then
-      print(fflag.GetCount(), "flags loaded")
-    end
-
-  ────────────────────────────────────────
-
-fflag.IsScanned → boolean
-  Returns true once the flag scan is complete.
-
-  Signature:
-    function fflag.IsScanned() → boolean
-
-  Example:
-    -- wait for scan before working with flags
-    while not fflag.IsScanned() do
-      sleep(0.1)
-    end
-    
-    print(fflag.GetCount(), "flags ready")
-
-  ────────────────────────────────────────
-
-
-MEMORY (memory.*)
-─────────────────
-
-memory.Read → integer | number | boolean | nil
-  Reads from address and returns a Lua value whose type depends on the type string. Integer types return an integer, floating-point types return a number, bool/boolean returns a boolean. Returns nil if address is 0. Throws if type is not recognised.
-
-  Signature:
-    function memory.Read(address: integer, type: string) → integer | number | boolean | nil
-
-  Parameters:
-    address — integer
-    type — string
-
-  Valid type strings:
-    uint8, u8, byte — 1 byte
-    uint16, u16, word, ushort — 2 bytes
-    uint32, u32, dword, uint — 4 bytes
-    uint64, u64, qword, ptr, pointer, uintptr — 8 bytes
-    int8, i8, sbyte — 1 byte
-    int16, i16, short — 2 bytes
-    int32, i32, int — 4 bytes
-    int64, i64, long — 8 bytes
-    float, f32, single — 4 bytes
-    double, f64 — 8 bytes
-    bool, boolean — 1 byte
-
-  Example:
-    local base = memory.base
-    
-    -- read a float at base + some offset
-    local hp = memory.Read(base + 0x1A4, "float")
-    print("hp:", hp)
-    
-    -- follow a pointer chain
-    local ptr = memory.Read(base + 0x3B8C20, "ptr")
-    local val = memory.Read(ptr + 0x50, "int32")
-    print("val:", val)
-
-  ────────────────────────────────────────
-
-memory.Write → boolean
-  Writes value to address using the given type. Returns true on success, false if address is 0. Throws if type is not recognised. The same type aliases as Read are accepted.
-
-  Signature:
-    function memory.Write(address: integer, type: string, value) → boolean
-
-  Parameters:
-    address — integer
-    type — string
-    value — integer | number | boolean
-
-  Example:
-    local addr = memory.Read(memory.base + 0x3B8C20, "ptr") + 0x1A4
-    
-    memory.Write(addr, "float", 9999.0)
-    memory.Write(addr, "bool", true)
-    memory.Write(addr, "uint32", 0xFF)
-
-  ────────────────────────────────────────
-
-memory.ReadBuffer → string | nil, string
-  Reads size raw bytes starting at address and returns them as a Lua binary string. On error (address 0, size ≤ 0, or size > 65536) returns nil followed by an error message string.
-
-  Signature:
-    function memory.ReadBuffer(address: integer, size: integer) → string | (nil, string)
-
-  Parameters:
-    address — integer
-    size — integer
-
-  Example:
-    local buf, err = memory.ReadBuffer(memory.base, 16)
-    if not buf then
-      print("error:", err)
-    else
-      -- iterate bytes
-      for i = 1, #buf do
-        io.write(string.format("%02X ", buf:byte(i)))
-      end
-    end
-
-  ────────────────────────────────────────
-
-memory.ReadString → string
-  Reads a null-terminated C string from address, up to max_len bytes. max_len defaults to 256 and is clamped to a maximum of 4096. Returns an empty string if address is 0.
-
-  Signature:
-    function memory.ReadString(address: integer [, max_len: integer]) → string
-
-  Parameters:
-    address — integer
-    max_len (optional) — integer
-
-  Example:
-    local name_ptr = memory.Read(memory.base + 0x1234, "ptr")
-    local name     = memory.ReadString(name_ptr)
-    print(name)
-    
-    -- longer string, custom cap
-    local long = memory.ReadString(name_ptr, 1024)
-
-  ────────────────────────────────────────
-
-memory.WriteString → boolean
-  Writes a Lua string to address. max_len defaults to len(str) + 1 (the exact byte count including null terminator). Returns false if address is 0 or the string is empty.
-
-  Signature:
-    function memory.WriteString(address: integer, str: string [, max_len: integer]) → boolean
-
-  Parameters:
-    address — integer
-    str — string
-    max_len (optional) — integer
-
-  Example:
-    local dest = memory.Read(memory.base + 0x1234, "ptr")
-    local ok   = memory.WriteString(dest, "hello")
-    print(ok)
-
-  ────────────────────────────────────────
-
-memory.GetBase → integer
-  Returns the base address of the Roblox module. The field memory.base holds the same value and is preferred for frequent reads.
-
-  Signature:
-    function memory.GetBase() → integer
-
-  Example:
-    local base = memory.base   -- preferred: no function call
-    -- or:
-    local base2 = memory.GetBase()
-    
-    print(string.format("base: 0x%X", base))
-
-  ────────────────────────────────────────
-
-
-CAMERA (camera.*)
-─────────────────
-
-camera.GetPosition → Vector3
-  Returns the camera's current world-space position as a Vector3.
-
-  Signature:
-    function camera.GetPosition() → Vector3
-
-  Example:
-    local pos = camera.GetPosition()
-    print(string.format("%.2f, %.2f, %.2f", pos.X, pos.Y, pos.Z))
-
-  ────────────────────────────────────────
-
-camera.GetLookVector → Vector3
-  Returns the normalized forward direction of the camera as a Vector3.
-
-  Signature:
-    function camera.GetLookVector() → Vector3
-
-  Example:
-    local look = camera.GetLookVector()
-    print(string.format("look: %.3f, %.3f, %.3f", look.X, look.Y, look.Z))
-
-  ────────────────────────────────────────
-
-camera.LookAt → boolean
-  Orients the camera toward a target. Accepts either an Instance or three coordinate numbers. An optional smooth value greater than 1 enables interpolation.
-
-  Variants:
-    camera.LookAt(target [, smooth]) — Orient toward an Instance's position
-    camera.LookAt(x, y, z [, smooth]) — Orient toward world-space coordinates
-
-  Example:
-    local hrp = game.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    camera.LookAt(hrp)
-    
-    -- or by coordinates with smoothing
-    camera.LookAt(100, 10, 200, 5)
-
-  ────────────────────────────────────────
-
-camera.GetFov → number
-  Returns the current camera field of view in degrees.
-
-  Signature:
-    function camera.GetFov() → number
-
-  Example:
-    print("FOV:", camera.GetFov())
-
-  ────────────────────────────────────────
-
-camera.SetFov → boolean
-  Sets the camera field of view in degrees. Returns true on success.
-
-  Signature:
-    function camera.SetFov(fov: number) → boolean
-
-  Example:
-    camera.SetFov(90)
-
-  ────────────────────────────────────────
-
-camera.TrackTarget → boolean
-  Starts a tracking thread that locks the camera onto a target while key is held. Requires both the target part and its Humanoid to be passed separately. The optional maxDist stops tracking if the target exceeds that distance.
-
-  Signature:
-    function camera.TrackTarget(part: Instance, humanoid: Instance, key: integer [, maxDist: number]) → boolean
-
-  Parameters:
-    part — Instance
-    humanoid — Instance
-    key — integer
-    maxDist (optional) — number
-
-  Example:
-    local char = game.Players:GetChildren()[2].Character
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    
-    camera.TrackTarget(hrp, hum, 0x46, 500) -- F key, 500 stud limit
-
-  ────────────────────────────────────────
-
-camera.StopTracking → boolean
-  Stops any active camera tracking thread.
-
-  Signature:
-    function camera.StopTracking() → boolean
-
-  Example:
-    camera.StopTracking()
-
-  ────────────────────────────────────────
-
-
-INPUT (input.*)
-───────────────
-
-input.MoveMouse → void
-  Moves the mouse cursor by the given pixel delta.
-
-  Signature:
-    function input.MoveMouse(dx: number, dy: number) → void
-
-  Example:
-    input.MoveMouse(10, -5)
-
-  ────────────────────────────────────────
-
-input.IsKeyDown → boolean
-  Returns true if the given virtual key is currently held down.
-
-  Signature:
-    function input.IsKeyDown(vk: integer) → boolean
-
-  Example:
-    if input.IsKeyDown(0x46) then -- F key
-      print("F held")
-    end
-
-  ────────────────────────────────────────
-
-input.GetScreenCenter → number, number
-  Returns the center of the overlay window in screen coordinates as two separate numbers.
-
-  Signature:
-    function input.GetScreenCenter() → number, number
-
-  Example:
-    local cx, cy = input.GetScreenCenter()
-    print(cx, cy)
-
-  ────────────────────────────────────────
-
-input.GetMousePosition → number, number
-  Returns the cursor position mapped to overlay client coordinates as two separate numbers.
-
-  Signature:
-    function input.GetMousePosition() → number, number
-
-  Example:
-    local mx, my = input.GetMousePosition()
-    print(mx, my)
-
-  ────────────────────────────────────────
-
-
-WORLD (workspace.* · lighting.* · terrain.*)
-────────────────────────────────────────────
-
-workspace.GetGravity / SetGravity
-  Reads or sets the current workspace gravity.
-
-  Example:
-    print(workspace.GetGravity())
-    workspace.SetGravity(0)  -- zero-G
-
-  ────────────────────────────────────────
-
-workspace.GetTickRate / SetTickRate
-  Reads or sets the physics simulation tick rate.
-
-  Example:
-    print(workspace.GetTickRate())
-    workspace.SetTickRate(240)
-
-  ────────────────────────────────────────
-
-lighting.GetBrightness / SetBrightness
-  Reads or sets scene brightness.
-
-  Example:
-    print(lighting.GetBrightness())
-    lighting.SetBrightness(2)
-
-  ────────────────────────────────────────
-
-lighting.GetExposure / SetExposure
-  Reads or sets camera exposure.
-
-  Example:
-    lighting.SetExposure(0)  -- no exposure compensation
-
-  ────────────────────────────────────────
-
-lighting.Fog functions
-  Reads or sets the fog start and end distances. Setting both to the same large value effectively removes fog.
-
-  Functions:
-    lighting.GetFogStart() → number — Fog start distance
-    lighting.SetFogStart(v) — Sets fog start distance
-    lighting.GetFogEnd() → number — Fog end distance
-    lighting.SetFogEnd(v) — Sets fog end distance
-
-  Example:
-    -- remove fog
-    lighting.SetFogStart(100000)
-    lighting.SetFogEnd(100000)
-
-  ────────────────────────────────────────
-
-lighting.DiffuseScale / SpecularScale
-  Reads or sets the diffuse and specular lighting scale multipliers.
-
-  Example:
-    lighting.SetDiffuseScale(0)
-    lighting.SetSpecularScale(0)
-
-  ────────────────────────────────────────
-
-lighting.Ambient / OutdoorAmbient
-  Reads or sets ambient and outdoor ambient light levels.
-
-  Example:
-    lighting.SetAmbient(1)
-    lighting.SetOutdoorAmbient(1)
-
-  ────────────────────────────────────────
-
-lighting.GetFogColor / SetFogColor
-  Reads or sets the fog color as a packed integer value.
-
-  Example:
-    print(string.format("0x%X", lighting.GetFogColor()))
-    lighting.SetFogColor(0x00FFFFFF)  -- white fog
-
-  ────────────────────────────────────────
-
-terrain.GetGrassLength / SetGrassLength
-  Reads or sets the terrain grass blade length.
-
-  Example:
-    terrain.SetGrassLength(0)  -- remove grass
-
-  ────────────────────────────────────────
-
-terrain.Water properties
-  Reads or sets water transparency and reflectance values.
-
-  Functions:
-    terrain.GetWaterTransparency() → number — Water transparency [0..1]
-    terrain.SetWaterTransparency(v) — Sets water transparency
-    terrain.GetWaterReflectance() → number — Water reflectance [0..1]
-    terrain.SetWaterReflectance(v) — Sets water reflectance
-
-  Example:
-    terrain.SetWaterTransparency(1)  -- invisible water
-    terrain.SetWaterReflectance(0)
-
-  ────────────────────────────────────────
-
-terrain.Wave properties
-  Reads or sets water wave size (amplitude) and speed.
-
-  Example:
-    terrain.SetWaterWaveSize(0)
-    terrain.SetWaterWaveSpeed(0)
-
-  ────────────────────────────────────────
-
-terrain.GetWaterColor / SetWaterColor
-  Reads or sets the water color as a packed integer value.
-
-  Example:
-    terrain.SetWaterColor(0x0000FF80)  -- blue, semi-transparent
-
-  ────────────────────────────────────────
-
-
-GC (bare globals)
-─────────────────
-
-getgc → table[], string?
-  Scans the game's Lua memory for tables containing any requested key with a number or boolean value. Returns an array of matching tables and their fields, and saves the matching entries for setgc. Every call performs a fresh scan and replaces the previous selection.
-
-  Variants:
-    getgc(key: string, constants?: boolean) → table[], string? — Find tables containing one key
-    getgc(keys: string[], constants?: boolean) → table[], string? — Find tables containing any key in the list
-
-  Returned records:
-    table — number
-    fields — table
-    constant — boolean?
-    around — string?
-
-  Example:
-    local matches, err = getgc({"WalkSpeed", "JumpPower"})
-    if err then
-      print(err)
-      return
-    end
-    
-    print(#matches, "tables found")
-    for _, match in ipairs(matches) do
-      for key, value in pairs(match.fields) do
-        print(key, value)
-      end
-    end
-
-    local matches, err = getgc("RecoilMult", true)
-    if err then
-      print(err)
-      return
-    end
-    
-    for _, match in ipairs(matches) do
-      if match.constant then
-        print(match.fields.RecoilMult, match.around)
-      end
-    end
-
-  ────────────────────────────────────────
-
-setgc → integer
-  Writes number or boolean values to the matching entries saved by the most recent getgc call. Call getgc with the keys you want to update first. Only those selected keys can be written, including function constants when the scan included them.
-
-  Variants:
-    setgc(key: string, value: number | boolean) → integer — Update one selected key
-    setgc(values: table) → integer — Update multiple selected keys using a map of key names to number or boolean values
-
-  Example:
-    local matches, err = getgc({"WalkSpeed", "JumpPower"})
-    if err then
-      print(err)
-      return
-    end
-    if #matches == 0 then
-      print("No matching tables found")
-      return
-    end
-    
-    local written = setgc({WalkSpeed = 100, JumpPower = 200})
-    print(written, "values written")
-    
-    -- Update a single key from the same scan
-    setgc("WalkSpeed", 80)
-
-  ────────────────────────────────────────
-
-
-NOTIFY (notify.*)
-─────────────────
-
-notify.Success → void
-  Shows a green success toast.
-
-  Signature:
-    function notify.Success(message: string [, subtitle: string [, duration: number]]) → void
-
-  Parameters:
-    message — string
-    subtitle (optional) — string
-    duration (optional) — number
-
-  Example:
-    notify.Success("Script loaded")
-    notify.Warning("Low memory", "consider restarting")
-    notify.Error("Connection failed", "check your settings", 5)
-
-  ────────────────────────────────────────
-
-notify.Warning → void
-  Shows a yellow warning toast. Same signature as notify.Success.
-
-  Signature:
-    function notify.Warning(message: string [, subtitle: string [, duration: number]]) → void
-
-  ────────────────────────────────────────
-
-notify.Error → void
-  Shows a red error toast. Same signature as notify.Success.
-
-  Signature:
-    function notify.Error(message: string [, subtitle: string [, duration: number]]) → void
-
-  ────────────────────────────────────────
-
-
-INSTANCE (instance.*)
-─────────────────────
-
-instance.New → instance
-  Creates a new Roblox instance of the given class and parents it. Throws on failure.
-
-  Signature:
-    function instance.New(className: string, parent: Instance) → instance
-
-  Parameters:
-    className — string
-    parent — Instance
-
-  Example:
-    -- add Highlight to every player's character, skip if already applied
-    thread.Create(function()
-      for _, ply in ipairs(entity.GetPlayers()) do
+end
+
+-- ============================ HIGHLIGHT ENEMIES ============================
+thread.Create(function()
+    if not menu.Get("hl_enemies") then return end
+    if not instance.IsReady() then return end
+    for _, ply in ipairs(entity.GetPlayers()) do
         local ok, char = pcall(function() return ply.Character end)
-        if ok and char and not char:FindFirstChildOfClass("Highlight") then
-          instance.New("Highlight", char)
+        if ok and char and not ply.IsLocal and not char:FindFirstChildOfClass("Highlight") then
+            instance.New("Highlight", char)
         end
-      end
-    end, 500)
-
-  ────────────────────────────────────────
-
-instance.Destroy → void
-  Destroys an instance and removes it from the hierarchy.
-
-  Signature:
-    function instance.Destroy(inst: Instance) → void
-
-  Example:
-    local part = instance.New("Part", game.Workspace)
-    instance.Destroy(part)
-
-  ────────────────────────────────────────
-
-instance.IsReady → boolean
-  Returns true when the instance creation system has finished initializing and is safe to use.
-
-  Signature:
-    function instance.IsReady() → boolean
-
-  Example:
-    if instance.IsReady() then
-      local p = instance.New("Part", game.Workspace)
     end
+end, 500)
 
-  ────────────────────────────────────────
+-- ============================ MOVEMENT BOOST ============================
+thread.Create(function()
+    if not menu.Get("mv_boost") then return end
+    local matches, err = getgc({"WalkSpeed", "JumpPower"})
+    if err then return end
+    if #matches == 0 then return end
+    setgc({ WalkSpeed = 32, JumpPower = 60 })
+end, 1000)
 
+-- ============================ HOLD-TO-SPRINT (Shift) ============================
+utility.OnKey(0xA0, "hold", function(held)
+    local lp = entity.GetLocalPlayer()
+    if lp then lp.WalkSpeed = held and 30 or 16 end
+end)
 
-EXPLOITS (exploits.*)
-─────────────────────
-
-exploits.ApplyChamsToInstance → boolean
-  Applies engine chams to a single renderable part. Only works on leaf geometry instances (Part, MeshPart, WedgePart, etc.) — passing a Model or Character returns false. To cham a whole character, iterate its descendants and filter by class. Also accepts a raw integer memory address in place of an Instance userdata.
-
-  Signatures:
-    function exploits.ApplyChamsToInstance(inst: Instance) → boolean
-    function exploits.ApplyChamsToInstance(address: integer) → boolean
-
-  Accepted part classes:
-    Part — Standard block / sphere / cylinder
-    MeshPart — Imported mesh — most character limbs use this
-    WedgePart — Wedge geometry
-    CornerWedgePart — Corner-wedge geometry
-    TrussPart — Structural truss
-    UnionOperation — CSG union
-
-  Example:
-    local PART_CLASSES = {
-      Part=true, MeshPart=true, WedgePart=true,
-      CornerWedgePart=true, TrussPart=true, UnionOperation=true
-    }
-    local applied = {}
-    
-    local function cham_char(char)
-      for _, part in ipairs(char:GetDescendants()) do
-        if PART_CLASSES[part.ClassName] and not applied[part.Address] then
-          if exploits.ApplyChamsToInstance(part) then
-            applied[part.Address] = true
-          end
+-- ============================ LOCK-ON CAMERA (G) ============================
+local track_active = false
+menu.SetCallback("cam_track", function(on)
+    if on then
+        local t = aim_target
+        if t and t.bone and t.player.Humanoid then
+            pcall(function()
+                camera.TrackTarget(t.bone, t.player.Humanoid, 0x47, 500)
+                track_active = true
+            end)
         end
-      end
+    else
+        if track_active then
+            camera.StopTracking()
+            track_active = false
+        end
     end
-    
-    exploits.SetChamsMode(2)   -- fill glow
-    exploits.SetChamsColor(2)  -- green
-    
-    local char = game.LocalPlayer.Character
-    if char then cham_char(char) end
+end)
 
-  ────────────────────────────────────────
+-- ============================ ANTI-AFK ============================
+thread.Create(function()
+    if menu.Get("anti_afk") then
+        pcall(function() input.MoveMouse(0, 0) end)
+    end
+end, 10000)
 
-exploits.RevertChams → void
-  Removes all active chams applied via ApplyChamsToInstance.
+-- ============================ MAIN FRAME LOOP ============================
+OnFrame = function()
+    refresh_cfg()
+    sync_silent_aim()
+    apply_aimbot()
+    apply_environment()
+    draw_player_esp()
+    if cfg.loot_esp    then draw_world_esp("loot",    cfg.loot_maxdist or 350, 12) end
+    if cfg.bodybag_esp then draw_world_esp("bodybag", cfg.bodybag_maxdist or 500, 12) end
+    if cfg.dropped_esp then draw_world_esp("dropped", cfg.dropped_maxdist or 150, 11) end
+    if cfg.nodes_esp   then draw_world_esp("node",    cfg.nodes_maxdist or 450, 12) end
+    if cfg.pickups_esp then draw_world_esp("pickup",  cfg.pickups_maxdist or 200, 11) end
+    draw_hud()
+end
 
-  Signature:
-    function exploits.RevertChams() → void
+-- ============================ JOIN/LEAVE TOASTS ============================
+OnPlayerAdded = function(player)
+    if menu.Get("notifs") then
+        notify.Success(player.Name .. " joined")
+    end
+end
+OnPlayerRemoved = function(player)
+    if menu.Get("notifs") then
+        notify.Warning(player.Name .. " left")
+    end
+end
 
-  Example:
-    exploits.RevertChams()
-
-  ────────────────────────────────────────
-
-exploits.GetChamsMode / SetChamsMode
-  Reads or sets the chams rendering mode. Value is clamped to 0–3.
-
-  Variants:
-    exploits.GetChamsMode() → integer — Returns current mode (0–3)
-    exploits.SetChamsMode(mode) → void — Sets mode, clamped to [0, 3]
-
-  Example:
-    print(exploits.GetChamsMode())
-    exploits.SetChamsMode(1)
-
-  ────────────────────────────────────────
-
-exploits.GetChamsColor / SetChamsColor
-  Reads or sets the chams color preset. Value is clamped to 0–6.
-
-  Variants:
-    exploits.GetChamsColor() → integer — Returns current color preset (0–6)
-    exploits.SetChamsColor(color) → void — Sets color preset, clamped to [0, 6]
-
-  Example:
-    print(exploits.GetChamsColor())
-    exploits.SetChamsColor(2)
-
-  ────────────────────────────────────────
+notify.Success("FUST Ultimate Hub loaded", "Based on Hamster Hub")
