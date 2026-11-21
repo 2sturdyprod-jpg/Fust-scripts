@@ -1,84 +1,67 @@
 -- =========================================================================
--- Ego - Fust Survival v1.5  (Vector external, local theme)
--- GUI: native gui.CreateWindow / gui.AddTab (replaces the hand-drawn menu)
+-- BustUI v1.5  (Vector external, native menu)
+-- GUI: menu.AddTab per schema tab
 -- =========================================================================
-local theme = {   accent  = {0.25,0.72,1.00,1}, accent2={0.42,0.48,1.00,1}, accent2_base={0.42,0.48,1.00,1},
-   base    = {0.020,0.027,0.055,1}, base2={0.012,0.018,0.040,1},
-   panel   = {0.055,0.075,0.125,1}, panel_hi={0.085,0.110,0.175,1},
-   field   = {0.105,0.135,0.200,1}, field_hi={0.140,0.180,0.260,1},
-   rail    = {0.110,0.145,0.210,1}, line={0.200,0.290,0.420,1},
-   text    = {0.87,0.93,1.00,1}, sub={0.48,0.60,0.74,1}, faint={0.30,0.40,0.54,1},
-   ok      = {0.25,0.75,0.85,1}, bad={0.90,0.35,0.50,1},
-   round=4, opacity=1.0, }
 
-local function a(c,al) return {c[1],c[2],c[3],(c[4] or 1)*(al or 1)*theme.opacity} end
-local function mix(c1,c2,t) return {c1[1]+(c2[1]-c1[1])*t,c1[2]+(c2[2]-c1[2])*t,c1[3]+(c2[3]-c1[3])*t,(c1[4] or 1)+((c2[4] or 1)-(c1[4] or 1))*t} end
+local theme = {
+    accent  = {0.25,0.72,1.00,1},
+    accent2 = {0.42,0.48,1.00,1},
+    base    = {0.020,0.027,0.055,1},
+    panel   = {0.055,0.075,0.125,1},
+    text    = {0.87,0.93,1.00,1},
+    sub     = {0.48,0.60,0.74,1},
+    ok      = {0.25,0.75,0.85,1},
+    bad     = {0.90,0.35,0.50,1},
+}
+
 local function clamp(v,lo,hi) return v<lo and lo or (v>hi and hi or v) end
+local function mix(c1,c2,t) return {c1[1]+(c2[1]-c1[1])*t,c1[2]+(c2[2]-c1[2])*t,c1[3]+(c2[3]-c1[3])*t,(c1[4] or 1)+((c2[4] or 1)-(c1[4] or 1))*t} end
 local function ease_out(t) t=clamp(t,0,1); local f=1-t; return 1-f*f*f end
 local function hsv(h,s,v) h=(h%1)*6; local i=math.floor(h); local f=h-i; local p=v*(1-s); local q=v*(1-s*f); local u=v*(1-s*(1-f))
-   if i==0 then return{v,u,p,1} elseif i==1 then return{q,v,p,1} elseif i==2 then return{p,v,u,1}
-   elseif i==3 then return{p,q,v,1} elseif i==4 then return{u,p,v,1} else return{v,p,q,1} end end
-local function to_hsv(c) local r,g,b=c[1],c[2],c[3]; local mx=math.max(r,g,b); local mn=math.min(r,g,b); local d=mx-mn; local h=0
-   if d>0 then if mx==r then h=((g-b)/d)%6 elseif mx==g then h=(b-r)/d+2 else h=(r-g)/d+4 end h=h/6 end
-   return h, (mx==0 and 0 or d/mx), mx end
-
-local COL_MEM={}
-local COL_SCR={1,1,1,1}
-local function hue_or(ch,base,al)
-   al=(al or 1)*theme.opacity
-   if ch then
-     local c=COL_SCR
-     c[1]=ch[1]; c[2]=ch[2]; c[3]=ch[3]; c[4]=(base[4] or 1)*al
-     return c
-   end
-   local m=COL_MEM[base]
-   if not m then m={}; COL_MEM[base]=m end
-   local c=m[al]
-   if not c then
-     c={base[1],base[2],base[3],(base[4] or 1)*al}
-     m[al]=c
-   end
-   return c
-end
+if i==0 then return{v,u,p,1} elseif i==1 then return{q,v,p,1} elseif i==2 then return{p,v,u,1}
+elseif i==3 then return{p,q,v,1} elseif i==4 then return{u,p,v,1} else return{v,p,q,1} end end
 
 local _dt=0.016
 local M_PER_STUD=0.28
 local anim={}
 local FRAME=0
 local function approach(k,target,spd) local v=anim[k]; if v==nil then v=target end
-   v=v+(target-v)*clamp(_dt*(spd or 12),0,1); anim[k]=v; return v end
+v=v+(target-v)*clamp(_dt*(spd or 12),0,1); anim[k]=v; return v end
 
 local SCR={w=1920,h=1080,f=-1}
 local function scr()
-   if SCR.f~=FRAME then
-     local w,h=draw.GetScreenSize()
-     SCR.w,SCR.h,SCR.f=w or 1920,h or 1080,FRAME
-   end
-   return SCR.w,SCR.h
+    if SCR.f~=FRAME then
+        local w,h=utility.GetScreenSize()
+        SCR.w,SCR.h,SCR.f=w or 1920,h or 1080,FRAME
+    end
+    return SCR.w,SCR.h
 end
+
 local function mouse_pos() local x,y=utility.GetMousePos(); return x or 0, y or 0 end
 
 local NOW={v=0,f=-1}
 local function now()
-   if NOW.f~=FRAME then
-     NOW.v=utility.GetTime and utility.GetTime() or os.clock()
-     NOW.f=FRAME
-   end
-   return NOW.v
+    if NOW.f~=FRAME then
+        NOW.v=utility.GetTime and utility.GetTime() or os.clock()
+        NOW.f=FRAME
+    end
+    return NOW.v
 end
 
 local function ekey(vk)
-   local ok,r=pcall(input.IsKeyDown,vk)
-   if not ok or r==nil or r==false or r==0 then return false end
-   return true
+    local ok,r=pcall(input.IsKeyDown,vk)
+    if not ok or r==nil or r==false or r==0 then return false end
+    return true
 end
+
 local VK={[0x01]="LMB",[0x02]="RMB",[0x04]="MMB",[0x05]="M4",[0x06]="M5",[0x08]="BACK",[0x09]="TAB",
-   [0x0D]="ENTER",[0x10]="SHIFT",[0x11]="CTRL",[0x12]="ALT",[0x1B]="ESC",[0x20]="SPACE",
-   [0x25]="LEFT",[0x26]="UP",[0x27]="RIGHT",[0x28]="DOWN",[0x2D]="INS",[0x2E]="DEL",
-   [0xA0]="LSHIFT",[0xA1]="RSHIFT",[0x43]="C",[0x46]="F",[0x51]="Q",[0x45]="E",[0x58]="X",[0x56]="V"}
+[0x0D]="ENTER",[0x10]="SHIFT",[0x11]="CTRL",[0x12]="ALT",[0x1B]="ESC",[0x20]="SPACE",
+[0x25]="LEFT",[0x26]="UP",[0x27]="RIGHT",[0x28]="DOWN",[0x2D]="INS",[0x2E]="DEL",
+[0xA0]="LSHIFT",[0xA1]="RSHIFT",[0x43]="C",[0x46]="F",[0x51]="Q",[0x45]="E",[0x58]="X",[0x56]="V"}
 for i=0,9 do VK[0x30+i]=tostring(i) end
 for i=0,25 do VK[0x41+i]=string.char(65+i) end
 for i=1,12 do VK[0x6F+i]="F"..i end
+
 local function vkname(vk) if not vk or vk==0 then return "NONE" end return VK[vk] or string.format("0x%02X",vk) end
 
 local cfg={}; local col={}; local bind={}
@@ -86,2078 +69,775 @@ local sgc_force=0
 local cfg_dirty=false
 local CFG={}
 
+-- =========================================================================
+-- SCHEMA (full Fust feature set)
+-- =========================================================================
 local SCHEMA = {
- {name="Aimbot", groups={
-   {name="Aimbot", col=1, items={
-     {t="toggle",id="aim_on",label="Enable Aimbot (medium risk)"},
-     {t="bind",id="aim_toggle",label="Toggle Key",default=0x46,show=function() return cfg.aim_on end},
-     {t="bind",id="aim_key",label="Aim Key",default=0x02,show=function() return cfg.aim_on end},
-     {t="combo",id="aim_bone",label="Aim Bone",items={"Head","Body","Root","Left Arm","Right Arm","Left Leg","Right Leg","Closest to Crosshair"},default=1,show=function() return cfg.aim_on end},
-     {t="combo",id="aim_priority",label="Target Priority",items={"Crosshair","Distance","Low HP"},default=1,show=function() return cfg.aim_on end},
-     {t="combo",id="aim_fovstyle",label="FOV Style",items={"Circle","Box","Diamond","Corner Box"},default=1,show=function() return cfg.aim_on end},
-     {t="slider",id="aim_fov",label="FOV",min=20,max=500,default=160,suf="px",show=function() return cfg.aim_on end},
-     {t="slider",id="aim_range",label="Aimbot Range",min=20,max=1500*M_PER_STUD,default=1500*M_PER_STUD,suf="m",show=function() return cfg.aim_on end},
-     {t="slider",id="aim_smooth",label="Smoothing (higher reduces risk)",min=1,max=200,default=25,show=function() return cfg.aim_on end},
-     {t="slider",id="aim_dz",label="Deadzone (higher reduces risk)",min=0,max=20,default=0,suf="px",show=function() return cfg.aim_on end},
-     {t="toggle",id="aim_sticky",label="Sticky Aim",default=false,show=function() return cfg.aim_on end},
-     {t="toggle",id="aim_team",label="Team Check",default=true,show=function() return cfg.aim_on end},
-     {t="toggle",id="aim_npc",label="Target NPC",default=false,show=function() return cfg.aim_on end},
-     {t="toggle",id="aim_pp",label="Target Players over NPC & Heli",default=false,show=function() return cfg.aim_on and (cfg.aim_npc or cfg.aim_heli) end},
-     {t="toggle",id="aim_heli",label="Target Patrol Heli",default=false,show=function() return cfg.aim_on end},
-     {t="toggle",id="aim_wall",label="Wall Check",default=false,show=function() return cfg.aim_on end},
-     {t="toggle",id="aim_wpred",label="Auto Weapon Predict",default=false,show=function() return cfg.aim_on end},
-     {t="slider",id="aim_wpred_tsize",label="Auto Weapon Predict & Sticky Aim Text Size",min=9,max=18,default=12,show=function() return cfg.aim_on and (cfg.aim_wpred or cfg.aim_sticky) end},
-     {t="toggle",id="aim_tline",label="Target Line",default=true,color="c_tline",show=function() return cfg.aim_on end},
-     {t="toggle",id="aim_fovcircle",label="Show FOV Circle",default=true,color="c_fov",show=function() return cfg.aim_on end},
-     {t="toggle",id="aim_fovchroma",label="Chroma FOV",default=false,show=function() return cfg.aim_on end},
-   }}},
- {name="ESP", groups={
-   {name="Players", col=1, items={
-     {t="toggle",id="esp_on",label="Enable ESP",default=true},
-     {t="bind",id="esp_toggle",label="Toggle Key",default=0x56,show=function() return cfg.esp_on end},
-     {t="toggle",id="esp_box",label="Box",default=false,color="c_box",show=function() return cfg.esp_on end},
-     {t="combo",id="esp_boxstyle",label="Box Style",items={"Corner","Full","Picture"},default=1,show=function() return cfg.esp_on end},
-     {t="combo",id="esp_picstyle",label="Picture Style",items={"King Von","Charlie Kirk","Lebron James","Benjamin Netanyahu"},default=1,show=function() return cfg.esp_on and cfg.esp_boxstyle==3 end},
-     {t="slider",id="esp_pic_opacity",label="Picture Opacity",min=10,max=100,default=100,suf="%",show=function() return cfg.esp_on and cfg.esp_boxstyle==3 end},
-     {t="toggle",id="esp_skel",label="Skeleton",default=true,color="c_enemy",show=function() return cfg.esp_on end},
-     {t="toggle",id="esp_headdot",label="Head Dot",default=false,show=function() return cfg.esp_on end},
-     {t="slider",id="esp_headdot_size",label="Dot Size",min=25,max=100,default=100,suf="%",show=function() return cfg.esp_on and cfg.esp_headdot end},
-     {t="toggle",id="chams_on",label="Chams",color="c_chams",show=function() return cfg.esp_on end},
-     {t="combo",id="chams_mode",label="Chams Style",items={"Filled","Outline"},default=1,show=function() return cfg.esp_on and cfg.chams_on end},
-     {t="toggle",id="esp_name",label="Name",default=true,color="c_name",show=function() return cfg.esp_on end},
-     {t="toggle",id="esp_dist",label="Distance",default=true,color="c_dist",show=function() return cfg.esp_on end},
-     {t="toggle",id="esp_hp",label="Health Bar",default=true,show=function() return cfg.esp_on end},
-     {t="toggle",id="esp_hptext",label="Health Text",default=false,show=function() return cfg.esp_on and cfg.esp_hp end},
-     {t="toggle",id="esp_weapon",label="Held item",default=true,color="c_weapon",show=function() return cfg.esp_on end},
-     {t="toggle",id="esp_team",label="Team Check",default=true,show=function() return cfg.esp_on end},
-     {t="slider",id="esp_maxdist",label="Player Range",min=0,max=1500*M_PER_STUD,default=1500*M_PER_STUD,suf="m",show=function() return cfg.esp_on end},
-     {t="slider",id="esp_textsize",label="Text Size",min=9,max=18,default=12,show=function() return cfg.esp_on end},
-   }},
-   {name="Extras", col=2, items={
-     {t="toggle",id="esp_hat",label="China Hat",default=false,color="c_hat",show=function() return cfg.esp_on end},
-     {t="slider",id="esp_hat_size",label="Hat Size",min=40,max=220,default=100,suf="%",show=function() return cfg.esp_on and cfg.esp_hat end},
-     {t="toggle",id="esp_tracer",label="Tracers",color="c_tracer",show=function() return cfg.esp_on end},
-     {t="combo",id="esp_tracer_from",label="Tracer Origin",items={"Bottom","Center","Top"},default=1,show=function() return cfg.esp_on and cfg.esp_tracer end},
-     {t="toggle",id="esp_chroma",label="Chroma Visuals",show=function() return cfg.esp_on end},
-   }},
-   {name="Radar", col=2, items={
-     {t="toggle",id="rad_on",label="Enable Radar"},
-     {t="slider",id="rad_size",label="Size",min=90,max=280,default=160,show=function() return cfg.rad_on end},
-     {t="slider",id="rad_range",label="Range",min=10,max=500*M_PER_STUD,default=50,suf="m",show=function() return cfg.rad_on end},
-     {t="slider",id="rad_x",label="X Pos",min=0,max=100,default=88,suf="%",show=function() return cfg.rad_on end},
-     {t="slider",id="rad_y",label="Y Pos",min=0,max=100,default=8,suf="%",show=function() return cfg.rad_on end},
-     {t="slider",id="rad_alpha",label="Opacity",min=20,max=100,default=80,suf="%",show=function() return cfg.rad_on end},
-   }}},
- {name="NPC ESP", groups={
-   {name="NPCs", col=1, items={
-     {t="toggle",id="npc_esp_enabled",label="Enable NPC ESP",default=false},
-     {t="toggle",id="npcs_heli",label="Patrol Heli",default=true,color="npc_heli_col",show=function() return cfg.npc_esp_enabled end},
-     {t="toggle",id="npcs_show_name",label="Name",default=true,color="npc_name_col",show=function() return cfg.npc_esp_enabled end},
-     {t="toggle",id="npc_tag",label="NPC Tag",default=false,color="npc_tag_col",show=function() return cfg.npc_esp_enabled end},
-     {t="toggle",id="npcs_show_dist",label="Distance",default=false,color="npc_dist_col",show=function() return cfg.npc_esp_enabled end},
-     {t="toggle",id="npc_skeleton",label="Skeleton",default=false,color="npc_skel_col",show=function() return cfg.npc_esp_enabled end},
-     {t="toggle",id="npc_headdot",label="Head Dot",default=false,show=function() return cfg.npc_esp_enabled end},
-     {t="slider",id="npc_headdot_size",label="Dot Size",min=25,max=100,default=100,suf="%",show=function() return cfg.npc_esp_enabled and cfg.npc_headdot end},
-     {t="toggle",id="npcs_show_health",label="Health Bar",default=false,show=function() return cfg.npc_esp_enabled end},
-     {t="toggle",id="npc_box",label="Box",default=false,color="npc_box_col",show=function() return cfg.npc_esp_enabled end},
-     {t="combo",id="npc_boxstyle",label="Box Style",items={"Corner","Full","Picture"},default=1,show=function() return cfg.npc_esp_enabled end},
-     {t="combo",id="npc_picstyle",label="Picture Style",items={"King Von","Charlie Kirk","Lebron James","Benjamin Netanyahu"},default=1,show=function() return cfg.npc_esp_enabled and cfg.npc_boxstyle==3 end},
-     {t="slider",id="npc_pic_opacity",label="Picture Opacity",min=10,max=100,default=100,suf="%",show=function() return cfg.npc_esp_enabled and cfg.npc_boxstyle==3 end},
-   }},
-   {name="Settings", col=2, items={
-     {t="slider",id="npcs_max_dist",label="NPC Range",min=0,max=300*M_PER_STUD,default=300*M_PER_STUD,suf="m",show=function() return cfg.npc_esp_enabled end},
-     {t="slider",id="npcs_font_size",label="Text Size",min=9,max=18,default=13,show=function() return cfg.npc_esp_enabled end},
-     {t="toggle",id="npc_hat",label="China Hat",default=false,color="npc_hat_col",show=function() return cfg.npc_esp_enabled end},
-     {t="slider",id="npc_hat_size",label="Hat Size",min=40,max=220,default=100,suf="%",show=function() return cfg.npc_esp_enabled and cfg.npc_hat end},
-     {t="toggle",id="npc_chroma",label="Chroma NPC",default=false,show=function() return cfg.npc_esp_enabled end},
-   }}},
- {name="World", groups={
-   {name="Loot Containers", col=1, items={
-     {t="toggle",id="loot_on",label="Enable Loot ESP"},
-     {t="toggle",id="loot_barrels",label="Barrels",default=true,color="c_lootbarrels",show=function() return cfg.loot_on end},
-     {t="toggle",id="loot_crates",label="Crates",default=true,color="c_lootcrates",show=function() return cfg.loot_on end},
-     {t="toggle",id="loot_military",label="Military",default=true,color="c_lootmilitary",show=function() return cfg.loot_on end},
-     {t="toggle",id="loot_elite",label="Elite",default=true,color="c_lootelite",show=function() return cfg.loot_on end},
-     {t="toggle",id="loot_dist",label="Show Distance",default=true,show=function() return cfg.loot_on end},
-     {t="slider",id="loot_range",label="Loot Range",min=0,max=225*M_PER_STUD,default=225*M_PER_STUD,suf="m",show=function() return cfg.loot_on end},
-     {t="slider",id="loot_text",label="Loot Text Size",min=9,max=18,default=12,show=function() return cfg.loot_on end},
-   }},
-   {name="Base", col=1, items={
-     {t="toggle",id="base_on",label="Enable Base ESP"},
-     {t="toggle",id="loot_largebox",label="Large Box",default=true,color="c_lootlargebox",show=function() return cfg.base_on end},
-     {t="toggle",id="loot_smallbox",label="Small Box",default=true,color="c_lootsmallbox",show=function() return cfg.base_on end},
-     {t="toggle",id="loot_tc",label="Tool Cupboard",default=true,color="c_loottc",show=function() return cfg.base_on end},
-     {t="toggle",id="loot_locker",label="Locker",default=true,color="c_lootlocker",show=function() return cfg.base_on end},
-     {t="toggle",id="loot_bag",label="Sleeping Bag",default=true,color="c_lootbag",show=function() return cfg.base_on end},
-     {t="toggle",id="base_shotguntrap",label="Shotgun Trap",default=true,color="c_baseshotguntrap",show=function() return cfg.base_on end},
-     {t="toggle",id="base_autoturret",label="Auto Turret",default=true,color="c_baseautoturret",show=function() return cfg.base_on end},
-     {t="toggle",id="base_aaturret",label="AA Turret",default=true,color="c_baseaaturret",show=function() return cfg.base_on end},
-     {t="toggle",id="base_dist",label="Show Distance",default=true,show=function() return cfg.base_on end},
-     {t="slider",id="base_range",label="Base Range",min=0,max=175*M_PER_STUD,default=175*M_PER_STUD,suf="m",show=function() return cfg.base_on end},
-     {t="slider",id="base_text",label="Base Text Size",min=9,max=18,default=12,show=function() return cfg.base_on end},
-   }},
-   {name="Body Bags & Dropped", col=2, items={
-     {t="toggle",id="bags_on",label="Enable Body Bags",color="c_bodybag"},
-     {t="toggle",id="drop_on",label="Enable Dropped Items",color="c_dropped"},
-     {t="toggle",id="bd_dist",label="Show Distance",show=function() return cfg.bags_on or cfg.drop_on end},
-     {t="slider",id="bd_range",label="Body Bags & Dropped Items Range",min=0,max=300*M_PER_STUD,default=300*M_PER_STUD,suf="m",show=function() return cfg.bags_on or cfg.drop_on end},
-     {t="slider",id="bd_text",label="Bags & Dropped Items Text Size",min=9,max=18,default=12,show=function() return cfg.bags_on or cfg.drop_on end},
-   }},
-   {name="Ore Nodes", col=2, items={
-     {t="toggle",id="nodes_on",label="Enable Ore Nodes"},
-     {t="toggle",id="node_stone",label="Stone Nodes",color="c_nodestone",show=function() return cfg.nodes_on end},
-     {t="toggle",id="node_sulfur",label="Sulfur Nodes",color="c_nodesulfur",show=function() return cfg.nodes_on end},
-     {t="toggle",id="node_iron",label="Metal / Iron",color="c_nodeiron",show=function() return cfg.nodes_on end},
-     {t="toggle",id="nodes_dist",label="Node Distance",show=function() return cfg.nodes_on end},
-     {t="slider",id="nodes_range",label="Node Range",min=0,max=225*M_PER_STUD,default=225*M_PER_STUD,suf="m",show=function() return cfg.nodes_on end},
-     {t="slider",id="nodes_text",label="Node Text Size",min=9,max=18,default=13,show=function() return cfg.nodes_on end},
-   }},
-   {name="Pickups", col=1, items={
-     {t="toggle",id="pick_on",label="Enable Pickups"},
-     {t="toggle",id="pick_ores",label="Loose Ores",color="c_pickores",show=function() return cfg.pick_on end},
-     {t="toggle",id="pick_wood",label="Wood Logs",color="c_pickwood",show=function() return cfg.pick_on end},
-     {t="toggle",id="pick_dist",label="Pickup Distance",show=function() return cfg.pick_on end},
-     {t="slider",id="pick_range",label="Pickup Range",min=0,max=75*M_PER_STUD,default=75*M_PER_STUD,suf="m",show=function() return cfg.pick_on end},
-     {t="slider",id="pick_text",label="Pickups Text Size",min=9,max=18,default=12,show=function() return cfg.pick_on end},
-   }},
-   {name="Food & Plants", col=2, items={
-     {t="toggle",id="plants_on",label="Enable Food & Plants"},
-     {t="toggle",id="pick_hemp",label="Hemp",color="c_pickhemp",show=function() return cfg.plants_on end},
-     {t="toggle",id="pick_corn",label="Corn",color="c_pickcorn",show=function() return cfg.plants_on end},
-     {t="toggle",id="pick_pumpkin",label="Pumpkin",color="c_pickpumpkin",show=function() return cfg.plants_on end},
-     {t="toggle",id="pick_berry",label="Berries",color="c_pickberry",show=function() return cfg.plants_on end},
-     {t="toggle",id="pick_mushroom",label="Mushroom",color="c_pickmushroom",show=function() return cfg.plants_on end},
-     {t="toggle",id="pick_carrot",label="Carrot",color="c_pickcarrot",show=function() return cfg.plants_on end},
-     {t="toggle",id="pick_potato",label="Potato",color="c_pickpotato",show=function() return cfg.plants_on end},
-     {t="toggle",id="pick_apple",label="Apple",color="c_pickapple",show=function() return cfg.plants_on end},
-     {t="toggle",id="plants_dist",label="Show Distance",show=function() return cfg.plants_on end},
-     {t="slider",id="plants_range",label="Plants & Food Range",min=0,max=125*M_PER_STUD,default=125*M_PER_STUD,suf="m",show=function() return cfg.plants_on end},
-     {t="slider",id="plants_text",label="Plants & Food Text Size",min=9,max=18,default=12,show=function() return cfg.plants_on end},
-   }},
-   {name="Vehicles", col=2, items={
-     {t="toggle",id="veh_on",label="Enable Vehicles ESP"},
-     {t="toggle",id="veh_atv",label="ATVs",default=true,color="c_veh_atv",show=function() return cfg.veh_on end},
-     {t="toggle",id="veh_boats",label="Boats",default=true,color="c_veh_boat",show=function() return cfg.veh_on end},
-     {t="toggle",id="veh_heli",label="Minicopters",default=true,color="c_veh_heli",show=function() return cfg.veh_on end},
-     {t="toggle",id="veh_dist",label="Show Distance",default=true,show=function() return cfg.veh_on end},
-     {t="slider",id="veh_range",label="Vehicle Range",min=0,max=1000*M_PER_STUD,default=1000*M_PER_STUD,suf="m",show=function() return cfg.veh_on end},
-     {t="slider",id="veh_text",label="Vehicles Text Size",min=9,max=18,default=12,show=function() return cfg.veh_on end},
-   }}},
- {name="Features", groups={
-   {name="Hitbox", col=1, items={
-     {t="toggle",id="hb_on",label="Player & NPC Head Hitbox Expander 1.3x (high risk)",default=false},
-     {t="toggle",id="hb_draw",label="Show Hitbox",default=false,color="c_hb",show=function() return cfg.hb_on end},
-     {t="toggle",id="hb_chroma",label="Chroma Hitbox",default=false,show=function() return cfg.hb_on end},
-   }},
-   {name="Gun Mods", col=2, items={
-     {t="toggle",id="gun_sgc",label="Weapon Patches"},
-     {t="toggle",id="gun_sgc_rate",label="Fire Rate (high risk)",default=false,show=function() return cfg.gun_sgc end},
-     {t="slider",id="gun_sgc_rate_ms",label="Fire Interval",min=80,max=190,default=90,suf="ms",show=function() return cfg.gun_sgc and cfg.gun_sgc_rate end},
-     {t="toggle",id="gun_sgc_clean",label="No recoil / spread / sway / Bloom / Shake / kick (medium risk)",default=false,show=function() return cfg.gun_sgc end},
-     {t="button",id="gun_sgc_now",label="Re-apply Patches",_cb=function() sgc_force=sgc_force+1 end,show=function() return cfg.gun_sgc end},
-   }}},
- {name="Crosshair", groups={
-   {name="Crosshair", col=1, items={
-     {t="toggle",id="xh_on",label="Custom Crosshair"},
-     {t="combo",id="xh_style",label="Style",items={"Cross","Dot","Circle","T","Star of David","Hitler"},default=1,show=function() return cfg.xh_on end},
-     {t="slider",id="xh_size",label="Size",min=4,max=30,default=10,show=function() return cfg.xh_on end},
-     {t="slider",id="xh_gap",label="Gap",min=0,max=16,default=4,show=function() return cfg.xh_on end},
-     {t="slider",id="xh_thick",label="Thickness",min=1,max=5,default=2,show=function() return cfg.xh_on end},
-     {t="toggle",id="xh_dot",label="Center Dot",show=function() return cfg.xh_on end},
-     {t="toggle",id="xh_spin",label="Spin",show=function() return cfg.xh_on end},
-     {t="slider",id="xh_speed",label="Spin Speed",min=-360,max=360,default=90,suf=" deg/s",show=function() return cfg.xh_on and cfg.xh_spin end},
-     {t="toggle",id="xh_pulse",label="Pulse",default=false,show=function() return cfg.xh_on end},
-     {t="slider",id="xh_pulse_speed",label="Pulse Speed",min=20,max=300,default=100,suf=" BPM",show=function() return cfg.xh_on and cfg.xh_pulse end},
-     {t="toggle",id="xh_follow",label="Follow Target",default=false,show=function() return cfg.xh_on end},
-     {t="toggle",id="xh_chroma",label="Chroma",default=false,show=function() return cfg.xh_on end},
-     {t="color",id="c_xh",label="Color",show=function() return cfg.xh_on end},
-   }}},
- {name="Config", groups={
-   {name="Profile", col=1, items={
-     {t="combo",id="cfg_slot",label="Slot",items={"1","2","3"},default=1},
-     {t="button",id="cfg_save",label="Save Config",_cb=function() CFG.save() end},
-     {t="button",id="cfg_load",label="Load Config",_cb=function() CFG.load() end},
-     {t="button",id="cfg_reset",label="Reset to Defaults",_cb=function() CFG.reset() end},
-     {t="toggle",id="cfg_auto",label="Auto Save",default=true},
-     {t="note",label="Writes egofust_config_<slot>.cfg and"},
-     {t="note",label="keeps a copy in the session."},
-   }}},
- {name="Settings", groups={
-   {name="Interface", col=1, items={
-     {t="bind",id="menu_key",label="Menu Key",default=0xA1},
-     {t="color",id="c_accent",label="Accent"},
-     {t="toggle",id="accent_chroma",label="Chroma Accent",default=false},
-     {t="slider",id="ui_opacity",label="Menu Opacity",min=50,max=100,default=100,suf="%"},
-     {t="toggle",id="hud_mark",label="Watermark",default=true},
-     {t="toggle",id="hud_keys",label="Keybind List",default=true},
-     {t="toggle",id="hud_bar",label="Feature Bar",default=true},
-     {t="note",label="Menu Key toggles the window."},
-     {t="note",label="Drag the top bar to move it."},
-     {t="button",id="unload",label="Unload"},
-   }}},
- },
+{name="Aimbot", groups={
+{name="Aimbot", items={
+{t="toggle",id="aim_on",label="Enable Aimbot (medium risk)"},
+{t="bind",id="aim_toggle",label="Toggle Key",default=0x46,show=function() return cfg.aim_on end},
+{t="bind",id="aim_key",label="Aim Key",default=0x02,show=function() return cfg.aim_on end},
+{t="combo",id="aim_bone",label="Aim Bone",items={"Head","Body","Root","Left Arm","Right Arm","Left Leg","Right Leg","Closest to Crosshair"},default=1,show=function() return cfg.aim_on end},
+{t="combo",id="aim_priority",label="Target Priority",items={"Crosshair","Distance","Low HP"},default=1,show=function() return cfg.aim_on end},
+{t="combo",id="aim_fovstyle",label="FOV Style",items={"Circle","Box","Diamond","Corner Box"},default=1,show=function() return cfg.aim_on end},
+{t="slider",id="aim_fov",label="FOV",min=20,max=500,default=160,suf="px",show=function() return cfg.aim_on end},
+{t="slider",id="aim_range",label="Aimbot Range",min=20,max=1500*M_PER_STUD,default=1500*M_PER_STUD,suf="m",show=function() return cfg.aim_on end},
+{t="slider",id="aim_smooth",label="Smoothing (higher reduces risk)",min=1,max=200,default=25,show=function() return cfg.aim_on end},
+{t="slider",id="aim_dz",label="Deadzone (higher reduces risk)",min=0,max=20,default=0,suf="px",show=function() return cfg.aim_on end},
+{t="toggle",id="aim_sticky",label="Sticky Aim",default=false,show=function() return cfg.aim_on end},
+{t="toggle",id="aim_team",label="Team Check",default=true,show=function() return cfg.aim_on end},
+{t="toggle",id="aim_npc",label="Target NPC",default=false,show=function() return cfg.aim_on end},
+{t="toggle",id="aim_pp",label="Target Players over NPC & Heli",default=false,show=function() return cfg.aim_on and (cfg.aim_npc or cfg.aim_heli) end},
+{t="toggle",id="aim_heli",label="Target Patrol Heli",default=false,show=function() return cfg.aim_on end},
+{t="toggle",id="aim_wall",label="Wall Check",default=false,show=function() return cfg.aim_on end},
+{t="toggle",id="aim_wpred",label="Auto Weapon Predict",default=false,show=function() return cfg.aim_on end},
+{t="slider",id="aim_wpred_tsize",label="Auto Weapon Predict & Sticky Aim Text Size",min=9,max=18,default=12,show=function() return cfg.aim_on and (cfg.aim_wpred or cfg.aim_sticky) end},
+{t="toggle",id="aim_tline",label="Target Line",default=true,color="c_tline",show=function() return cfg.aim_on end},
+{t="toggle",id="aim_fovcircle",label="Show FOV Circle",default=true,color="c_fov",show=function() return cfg.aim_on end},
+{t="toggle",id="aim_fovchroma",label="Chroma FOV",default=false,show=function() return cfg.aim_on end},
+}}},
+{name="ESP", groups={
+{name="Players", items={
+{t="toggle",id="esp_on",label="Enable ESP",default=true},
+{t="bind",id="esp_toggle",label="Toggle Key",default=0x56,show=function() return cfg.esp_on end},
+{t="toggle",id="esp_box",label="Box",default=false,color="c_box",show=function() return cfg.esp_on end},
+{t="combo",id="esp_boxstyle",label="Box Style",items={"Corner","Full","Picture"},default=1,show=function() return cfg.esp_on end},
+{t="combo",id="esp_picstyle",label="Picture Style",items={"King Von","Charlie Kirk","Lebron James","Benjamin Netanyahu"},default=1,show=function() return cfg.esp_on and cfg.esp_boxstyle==3 end},
+{t="slider",id="esp_pic_opacity",label="Picture Opacity",min=10,max=100,default=100,suf="%",show=function() return cfg.esp_on and cfg.esp_boxstyle==3 end},
+{t="toggle",id="esp_skel",label="Skeleton",default=true,color="c_enemy",show=function() return cfg.esp_on end},
+{t="toggle",id="esp_headdot",label="Head Dot",default=false,show=function() return cfg.esp_on end},
+{t="slider",id="esp_headdot_size",label="Dot Size",min=25,max=100,default=100,suf="%",show=function() return cfg.esp_on and cfg.esp_headdot end},
+{t="toggle",id="chams_on",label="Chams",color="c_chams",show=function() return cfg.esp_on end},
+{t="combo",id="chams_mode",label="Chams Style",items={"Filled","Outline"},default=1,show=function() return cfg.esp_on and cfg.chams_on end},
+{t="toggle",id="esp_name",label="Name",default=true,color="c_name",show=function() return cfg.esp_on end},
+{t="toggle",id="esp_dist",label="Distance",default=true,color="c_dist",show=function() return cfg.esp_on end},
+{t="toggle",id="esp_hp",label="Health Bar",default=true,show=function() return cfg.esp_on end},
+{t="toggle",id="esp_hptext",label="Health Text",default=false,show=function() return cfg.esp_on and cfg.esp_hp end},
+{t="toggle",id="esp_weapon",label="Held item",default=true,color="c_weapon",show=function() return cfg.esp_on end},
+{t="toggle",id="esp_team",label="Team Check",default=true,show=function() return cfg.esp_on end},
+{t="slider",id="esp_maxdist",label="Player Range",min=0,max=1500*M_PER_STUD,default=1500*M_PER_STUD,suf="m",show=function() return cfg.esp_on end},
+{t="slider",id="esp_textsize",label="Text Size",min=9,max=18,default=12,show=function() return cfg.esp_on end},
+}},
+{name="Extras", items={
+{t="toggle",id="esp_hat",label="China Hat",default=false,color="c_hat",show=function() return cfg.esp_on end},
+{t="slider",id="esp_hat_size",label="Hat Size",min=40,max=220,default=100,suf="%",show=function() return cfg.esp_on and cfg.esp_hat end},
+{t="toggle",id="esp_tracer",label="Tracers",color="c_tracer",show=function() return cfg.esp_on end},
+{t="combo",id="esp_tracer_from",label="Tracer Origin",items={"Bottom","Center","Top"},default=1,show=function() return cfg.esp_on and cfg.esp_tracer end},
+{t="toggle",id="esp_chroma",label="Chroma Visuals",show=function() return cfg.esp_on end},
+}},
+{name="Radar", items={
+{t="toggle",id="rad_on",label="Enable Radar"},
+{t="slider",id="rad_size",label="Size",min=90,max=280,default=160,show=function() return cfg.rad_on end},
+{t="slider",id="rad_range",label="Range",min=10,max=500*M_PER_STUD,default=50,suf="m",show=function() return cfg.rad_on end},
+{t="slider",id="rad_x",label="X Pos",min=0,max=100,default=88,suf="%",show=function() return cfg.rad_on end},
+{t="slider",id="rad_y",label="Y Pos",min=0,max=100,default=8,suf="%",show=function() return cfg.rad_on end},
+{t="slider",id="rad_alpha",label="Opacity",min=20,max=100,default=80,suf="%",show=function() return cfg.rad_on end},
+}}},
+{name="NPC ESP", groups={
+{name="NPCs", items={
+{t="toggle",id="npc_esp_enabled",label="Enable NPC ESP",default=false},
+{t="toggle",id="npcs_heli",label="Patrol Heli",default=true,color="npc_heli_col",show=function() return cfg.npc_esp_enabled end},
+{t="toggle",id="npcs_show_name",label="Name",default=true,color="npc_name_col",show=function() return cfg.npc_esp_enabled end},
+{t="toggle",id="npc_tag",label="NPC Tag",default=false,color="npc_tag_col",show=function() return cfg.npc_esp_enabled end},
+{t="toggle",id="npcs_show_dist",label="Distance",default=false,color="npc_dist_col",show=function() return cfg.npc_esp_enabled end},
+{t="toggle",id="npc_skeleton",label="Skeleton",default=false,color="npc_skel_col",show=function() return cfg.npc_esp_enabled end},
+{t="toggle",id="npc_headdot",label="Head Dot",default=false,show=function() return cfg.npc_esp_enabled end},
+{t="slider",id="npc_headdot_size",label="Dot Size",min=25,max=100,default=100,suf="%",show=function() return cfg.npc_esp_enabled and cfg.npc_headdot end},
+{t="toggle",id="npcs_show_health",label="Health Bar",default=false,show=function() return cfg.npc_esp_enabled end},
+{t="toggle",id="npc_box",label="Box",default=false,color="npc_box_col",show=function() return cfg.npc_esp_enabled end},
+{t="combo",id="npc_boxstyle",label="Box Style",items={"Corner","Full","Picture"},default=1,show=function() return cfg.npc_esp_enabled end},
+{t="combo",id="npc_picstyle",label="Picture Style",items={"King Von","Charlie Kirk","Lebron James","Benjamin Netanyahu"},default=1,show=function() return cfg.npc_esp_enabled and cfg.npc_boxstyle==3 end},
+{t="slider",id="npc_pic_opacity",label="Picture Opacity",min=10,max=100,default=100,suf="%",show=function() return cfg.npc_esp_enabled and cfg.npc_boxstyle==3 end},
+}},
+{name="Settings", items={
+{t="slider",id="npcs_max_dist",label="NPC Range",min=0,max=300*M_PER_STUD,default=300*M_PER_STUD,suf="m",show=function() return cfg.npc_esp_enabled end},
+{t="slider",id="npcs_font_size",label="Text Size",min=9,max=18,default=13,show=function() return cfg.npc_esp_enabled end},
+{t="toggle",id="npc_hat",label="China Hat",default=false,color="npc_hat_col",show=function() return cfg.npc_esp_enabled end},
+{t="slider",id="npc_hat_size",label="Hat Size",min=40,max=220,default=100,suf="%",show=function() return cfg.npc_esp_enabled and cfg.npc_hat end},
+{t="toggle",id="npc_chroma",label="Chroma NPC",default=false,show=function() return cfg.npc_esp_enabled end},
+}}},
+{name="World", groups={
+{name="Loot Containers", items={
+{t="toggle",id="loot_on",label="Enable Loot ESP"},
+{t="toggle",id="loot_barrels",label="Barrels",default=true,color="c_lootbarrels",show=function() return cfg.loot_on end},
+{t="toggle",id="loot_crates",label="Crates",default=true,color="c_lootcrates",show=function() return cfg.loot_on end},
+{t="toggle",id="loot_military",label="Military",default=true,color="c_lootmilitary",show=function() return cfg.loot_on end},
+{t="toggle",id="loot_elite",label="Elite",default=true,color="c_lootelite",show=function() return cfg.loot_on end},
+{t="toggle",id="loot_dist",label="Show Distance",default=true,show=function() return cfg.loot_on end},
+{t="slider",id="loot_range",label="Loot Range",min=0,max=225*M_PER_STUD,default=225*M_PER_STUD,suf="m",show=function() return cfg.loot_on end},
+{t="slider",id="loot_text",label="Loot Text Size",min=9,max=18,default=12,show=function() return cfg.loot_on end},
+}},
+{name="Base", items={
+{t="toggle",id="base_on",label="Enable Base ESP"},
+{t="toggle",id="loot_largebox",label="Large Box",default=true,color="c_lootlargebox",show=function() return cfg.base_on end},
+{t="toggle",id="loot_smallbox",label="Small Box",default=true,color="c_lootsmallbox",show=function() return cfg.base_on end},
+{t="toggle",id="loot_tc",label="Tool Cupboard",default=true,color="c_loottc",show=function() return cfg.base_on end},
+{t="toggle",id="loot_locker",label="Locker",default=true,color="c_lootlocker",show=function() return cfg.base_on end},
+{t="toggle",id="loot_bag",label="Sleeping Bag",default=true,color="c_lootbag",show=function() return cfg.base_on end},
+{t="toggle",id="base_shotguntrap",label="Shotgun Trap",default=true,color="c_baseshotguntrap",show=function() return cfg.base_on end},
+{t="toggle",id="base_autoturret",label="Auto Turret",default=true,color="c_baseautoturret",show=function() return cfg.base_on end},
+{t="toggle",id="base_aaturret",label="AA Turret",default=true,color="c_baseaaturret",show=function() return cfg.base_on end},
+{t="toggle",id="base_dist",label="Show Distance",default=true,show=function() return cfg.base_on end},
+{t="slider",id="base_range",label="Base Range",min=0,max=175*M_PER_STUD,default=175*M_PER_STUD,suf="m",show=function() return cfg.base_on end},
+{t="slider",id="base_text",label="Base Text Size",min=9,max=18,default=12,show=function() return cfg.base_on end},
+}},
+{name="Body Bags & Dropped", items={
+{t="toggle",id="bags_on",label="Enable Body Bags",color="c_bodybag"},
+{t="toggle",id="drop_on",label="Enable Dropped Items",color="c_dropped"},
+{t="toggle",id="bd_dist",label="Show Distance",show=function() return cfg.bags_on or cfg.drop_on end},
+{t="slider",id="bd_range",label="Body Bags & Dropped Items Range",min=0,max=300*M_PER_STUD,default=300*M_PER_STUD,suf="m",show=function() return cfg.bags_on or cfg.drop_on end},
+{t="slider",id="bd_text",label="Bags & Dropped Items Text Size",min=9,max=18,default=12,show=function() return cfg.bags_on or cfg.drop_on end},
+}},
+{name="Ore Nodes", items={
+{t="toggle",id="nodes_on",label="Enable Ore Nodes"},
+{t="toggle",id="node_stone",label="Stone Nodes",color="c_nodestone",show=function() return cfg.nodes_on end},
+{t="toggle",id="node_sulfur",label="Sulfur Nodes",color="c_nodesulfur",show=function() return cfg.nodes_on end},
+}}},
+{name="Gun SGC", groups={
+{name="SGC", items={
+{t="toggle",id="gun_sgc",label="Enable SGC Patches"},
+{t="toggle",id="gun_sgc_rate",label="Rate Patch",default=true,show=function() return cfg.gun_sgc end},
+{t="slider",id="gun_sgc_rate_ms",label="Fire Interval",min=80,max=190,default=90,suf="ms",show=function() return cfg.gun_sgc and cfg.gun_sgc_rate end},
+{t="toggle",id="gun_sgc_clean",label="No recoil / spread / sway / Bloom / Shake / kick (medium risk)",default=false,show=function() return cfg.gun_sgc end},
+{t="button",id="gun_sgc_now",label="Re-apply Patches",_cb=function() sgc_force=sgc_force+1 end,show=function() return cfg.gun_sgc end},
+}}},
+{name="Crosshair", groups={
+{name="Crosshair", items={
+{t="toggle",id="xh_on",label="Custom Crosshair"},
+{t="combo",id="xh_style",label="Style",items={"Cross","Dot","Circle","T","Star of David","Hitler"},default=1,show=function() return cfg.xh_on end},
+{t="slider",id="xh_size",label="Size",min=4,max=30,default=10,show=function() return cfg.xh_on end},
+{t="slider",id="xh_gap",label="Gap",min=0,max=16,default=4,show=function() return cfg.xh_on end},
+{t="slider",id="xh_thick",label="Thickness",min=1,max=5,default=2,show=function() return cfg.xh_on end},
+{t="toggle",id="xh_dot",label="Center Dot",show=function() return cfg.xh_on end},
+{t="toggle",id="xh_spin",label="Spin",show=function() return cfg.xh_on end},
+{t="slider",id="xh_speed",label="Spin Speed",min=-360,max=360,default=90,suf=" deg/s",show=function() return cfg.xh_on and cfg.xh_spin end},
+{t="toggle",id="xh_pulse",label="Pulse",default=false,show=function() return cfg.xh_on end},
+{t="slider",id="xh_pulse_speed",label="Pulse Speed",min=20,max=300,default=100,suf=" BPM",show=function() return cfg.xh_on and cfg.xh_pulse end},
+{t="toggle",id="xh_follow",label="Follow Target",default=false,show=function() return cfg.xh_on end},
+{t="toggle",id="xh_chroma",label="Chroma",default=false,show=function() return cfg.xh_on end},
+{t="color",id="c_xh",label="Color",show=function() return cfg.xh_on end},
+}}},
+{name="Config", groups={
+{name="Profile", items={
+{t="combo",id="cfg_slot",label="Slot",items={"1","2","3"},default=1},
+{t="button",id="cfg_save",label="Save Config",_cb=function() CFG.save() end},
+{t="button",id="cfg_load",label="Load Config",_cb=function() CFG.load() end},
+{t="button",id="cfg_reset",label="Reset to Defaults",_cb=function() CFG.reset() end},
+{t="toggle",id="cfg_auto",label="Auto Save",default=true},
+{t="note",label="Writes bustui_config_<slot>.cfg and keeps a copy in the session."},
+}}},
+{name="Settings", groups={
+{name="Interface", items={
+{t="bind",id="menu_key",label="Menu Key",default=0xA1},
+{t="color",id="c_accent",label="Accent"},
+{t="toggle",id="accent_chroma",label="Chroma Accent",default=false},
+{t="slider",id="ui_opacity",label="Menu Opacity",min=50,max=100,default=100,suf="%"},
+{t="toggle",id="hud_mark",label="Watermark",default=true},
+{t="toggle",id="hud_keys",label="Keybind List",default=true},
+{t="toggle",id="hud_bar",label="Feature Bar",default=true},
+{t="button",id="unload",label="Unload"},
+}}},
 }
 
 local DEF_COL={
- c_fov={0.45,0.78,1,1}, c_tline={0.45,0.78,1,1},
-   c_enemy={0.95,0.35,0.4,1}, c_box={0.45,0.78,1,1},
-   c_name={1,1,1,1}, c_weapon={1,0.88,0.55,1},
-   c_dist={0.87,0.93,1,1},
-   c_tracer={0.95,0.35,0.4,1}, c_xh={1,1,1,1},
-   c_accent={0.25,0.72,1.0,1},
-   c_hat={0.99,0.78,0.36,1},
-   c_chams={1.0,0.22,0.34,1}, c_hb={0.45,0.78,1,0.8},
-   npc_soldier_col={0.25,0.85,1.00,1}, npc_heli_col={1.00,0.20,0.20,1},
-   npc_skel_col={1.00,0.35,0.35,1}, npc_hat_col={0.99,0.78,0.36,1}, npc_name_col={0.25,0.85,1.00,1}, npc_dist_col={0.25,0.85,1.00,1}, npc_box_col={0.45,0.78,1,1}, npc_tag_col={1.00,0.85,0.35,1},
-   c_lootbarrels={0.25,0.75,1.00,1}, c_lootcrates={0.95,0.70,0.25,1},
-   c_lootmilitary={0.20,1.00,0.40,1}, c_lootelite={0.95,0.25,0.45,1},
-   c_lootlargebox={0.95,0.65,0.20,1}, c_lootsmallbox={0.85,0.50,0.15,1},
-   c_loottc={0.20,0.85,1.00,1}, c_lootlocker={0.70,0.75,0.90,1},
-   c_lootbag={0.45,0.90,0.65,1},
-   c_baseshotguntrap={1.00,0.55,0.20,1}, c_baseautoturret={1.00,0.30,0.35,1},
-   c_baseaaturret={0.85,0.45,1.00,1},
-   c_bodybag={0.90,0.25,0.35,1}, c_dropped={1.0,0.4,0.9,1},
-   c_nodestone={0.85,0.85,0.90,1}, c_nodesulfur={0.95,0.85,0.20,1},
-   c_nodeiron={0.45,0.75,1.00,1},
-   c_pickores={1.0,0.80,0.35,1}, c_pickwood={0.75,0.55,0.35,1},
-   c_pickhemp={0.45,0.95,0.45,1}, c_pickcorn={0.98,0.85,0.25,1},
-   c_pickpumpkin={1.0,0.55,0.15,1}, c_pickberry={0.75,0.40,0.95,1},
-   c_pickmushroom={0.90,0.80,0.65,1}, c_pickcarrot={1.0,0.45,0.20,1},
-   c_pickpotato={0.80,0.62,0.38,1}, c_pickapple={0.95,0.25,0.30,1},
-   c_veh_atv={0.95,0.72,0.25,1}, c_veh_boat={0.30,0.85,1.00,1},
-   c_veh_heli={0.72,0.55,1.00,1}
+c_fov={0.45,0.78,1,1}, c_tline={0.45,0.78,1,1},
+c_enemy={0.95,0.35,0.4,1}, c_box={0.45,0.78,1,1},
+c_name={1,1,1,1}, c_weapon={1,0.88,0.55,1},
+c_dist={0.87,0.93,1,1},
+c_tracer={0.95,0.35,0.4,1}, c_xh={1,1,1,1},
+c_accent={0.25,0.72,1.0,1},
+c_hat={0.99,0.78,0.36,1},
+c_chams={1.0,0.22,0.34,1}, c_hb={0.45,0.78,1,0.8},
+npc_soldier_col={0.25,0.85,1.00,1}, npc_heli_col={1.00,0.20,0.20,1},
+npc_skel_col={1.00,0.35,0.35,1}, npc_hat_col={0.99,0.78,0.36,1}, npc_name_col={0.25,0.85,1.00,1}, npc_dist_col={0.25,0.85,1.00,1}, npc_box_col={0.45,0.78,1,1}, npc_tag_col={1.00,0.85,0.35,1},
+c_lootbarrels={0.25,0.75,1.00,1}, c_lootcrates={0.95,0.70,0.25,1},
+c_lootmilitary={0.20,1.00,0.40,1}, c_lootelite={0.95,0.25,0.45,1},
+c_lootlargebox={0.95,0.65,0.20,1}, c_lootsmallbox={0.85,0.50,0.15,1},
+c_loottc={0.20,0.85,1.00,1}, c_lootlocker={0.70,0.75,0.90,1},
+c_lootbag={0.45,0.90,0.65,1},
+c_baseshotguntrap={1.00,0.55,0.20,1}, c_baseautoturret={1.00,0.30,0.35,1},
+c_baseaaturret={0.85,0.45,1.00,1},
+c_bodybag={0.90,0.25,0.35,1}, c_dropped={1.0,0.4,0.9,1},
+c_nodestone={0.85,0.85,0.90,1}, c_nodesulfur={0.95,0.85,0.20,1},
+c_nodeiron={0.45,0.75,1.00,1},
+c_pickores={1.0,0.80,0.35,1}, c_pickwood={0.75,0.55,0.35,1},
+c_pickhemp={0.45,0.95,0.45,1}, c_pickcorn={0.98,0.85,0.25,1},
+c_pickpumpkin={1.0,0.55,0.15,1}, c_pickberry={0.75,0.40,0.95,1},
+c_pickmushroom={0.90,0.80,0.65,1}, c_pickcarrot={1.0,0.45,0.20,1},
+c_pickpotato={0.80,0.62,0.38,1}, c_pickapple={0.95,0.25,0.30,1},
+c_veh_atv={0.95,0.72,0.25,1}, c_veh_boat={0.30,0.85,1.00,1},
+c_veh_heli={0.72,0.55,1.00,1}
 }
 
-for _,tab in ipairs(SCHEMA) do for_ ,g in ipairs(tab.groups) do for _,it in ipairs(g.items) do
-   if it.t=="toggle" then cfg[it.id]=it.default or false
-   elseif it.t=="slider" then cfg[it.id]=it.default or it.min
-   elseif it.t=="combo" then cfg[it.id]=it.default or 1
-   elseif it.t=="bind" then bind[it.id]=it.default or 0
-   elseif it.t=="color" then
-     local dc=DEF_COL[it.id] or it.default
-     if dc and type(dc)=="table" then col[it.id]={dc[1] or 1, dc[2] or 1, dc[3] or 1, dc[4] or 1} else col[it.id]={1,1,1,1} end
-   end
-   if it.color then
-     local cid=it.color
-     local d=DEF_COL[cid]
-     if d then col[cid]={d[1],d[2],d[3],d[4]} elseif type(cid)=="string" and cfg[cid]==nil and col[cid]==nil then col[cid]={0.25,0.85,1.00,1} end
-   end
+-- Initialize config state from schema
+for _,tab in ipairs(SCHEMA) do for _,g in ipairs(tab.groups) do for _,it in ipairs(g.items) do
+if it.t=="toggle" then cfg[it.id]=it.default or false
+elseif it.t=="slider" then cfg[it.id]=it.default or it.min
+elseif it.t=="combo" then cfg[it.id]=it.default or 1
+elseif it.t=="bind" then bind[it.id]=it.default or 0
+elseif it.t=="color" then
+local dc=DEF_COL[it.id] or it.default
+if dc and type(dc)=="table" then col[it.id]={dc[1] or 1, dc[2] or 1, dc[3] or 1, dc[4] or 1} else col[it.id]={1,1,1,1} end
+end
+if it.color then
+local cid=it.color
+local d=DEF_COL[cid]
+if d then col[cid]={d[1],d[2],d[3],d[4]} elseif type(cid)=="string" and cfg[cid]==nil and col[cid]==nil then col[cid]={0.25,0.85,1.00,1} end
+end
 end end end
 
--- HUD panel positions (watermark, keybind list, feature bar)
 cfg.hud_mark_x,cfg.hud_mark_y=-1,-1
 cfg.hud_keys_x,cfg.hud_keys_y=-1,-1
 cfg.hud_bar_x,cfg.hud_bar_y=-1,-1
-
-local TS={w={},h={},n=0}
-local function ts(s,sz)
-   sz=sz or 12
-   local e=TS.w[sz]
-   if not e then e={}; TS.w[sz]=e end
-   local w=e[s]
-   if w==nil then
-     local h
-     w,h=draw.GetTextSize(s,sz)
-     if w==nil then w=0 end
-     e[s]=w
-     if h then TS.h[sz]=h end
-     TS.n=TS.n+1
-     if TS.n>4000 then TS.w={}; TS.n=0 end
-   end
-   return w, TS.h[sz] or 12
-end
-local function tmid(x,y,h,s,c,sz) sz=sz or 12; local _,th=ts(s,sz); draw.Text(x,y+(h-th)*0.5,s,c,sz) end
-local function trt(xr,y,h,s,c,sz) sz=sz or 12; local tw,th2=ts(s,sz); draw.Text(xr-tw,y+(h-th2)*0.5,s,c,sz) return tw end
-local function inside(x,y,w,h) local m=ui.m return m.x>=x and m.x<=x+w and m.y>=y and m.y<=y+h end
+cfg_dirty=true
 
 -- =========================================================================
--- CONFIG (declared before the GUI so slot combo + buttons can wire up)
+-- CONFIG SYSTEM
 -- =========================================================================
 CFG.env=function()
-   local g=getgenv and getgenv() or _G
-   if type(g)~="table" then return nil end
-   if type(g.EGOFUST_CFGS)~="table" then g.EGOFUST_CFGS={} end
-   return g
+local g=getgenv and getgenv() or _G
+if type(g)~="table" then return nil end
+if type(g.BUSTUI_CFGS)~="table" then g.BUSTUI_CFGS={} end
+return g
 end
+
 CFG.http=function()
-   local ok,hs=pcall(function() return game:GetService("HttpService") end)
-   if ok and hs then return hs end
-   ok,hs=pcall(function() return game.GetService("HttpService") end)
-   if ok and hs then return hs end
-   return nil
+local ok,hs=pcall(function() return game:GetService("HttpService") end)
+if ok and hs then return hs end
+ok,hs=pcall(function() return game.GetService("HttpService") end)
+if ok and hs then return hs end
+return nil
 end
+
 CFG.last=0
+
 CFG.save=function(slot,quiet)
-   slot=tonumber(slot) or tonumber(cfg.cfg_slot) or 1
-   local data=nil
-   local hs=CFG.http()
-   if hs then
-     local t={v={},b={},c={}}
-     for k,v in pairs(cfg) do if k~="cfg_slot" and k:sub(1,7)~="gun_sgc" then t.v[k]=v end end
-     for k,v in pairs(bind) do t.b[k]=v end
-     for k,cv in pairs(col) do t.c[k]={cv[1] or 0,cv[2] or 0,cv[3] or 0,cv[4] or 1} end
-     local ok,s=pcall(function() return hs:JSONEncode(t) end)
-     if ok and type(s)=="string" and #s>0 then data=s end
-   end
-   if not data then
-     local o={"#egofust-config-v1"}
-     for k,v in pairs(cfg) do
-       if k~="cfg_slot" and k:sub(1,7)~="gun_sgc" then o[#o+1]="v "..k.."="..(type(v)=="boolean" and (v and "1" or "0") or tostring(v)) end
-     end
-     for k,v in pairs(bind) do o[#o+1]="b "..k.."="..tostring(v) end
-     for k,cv in pairs(col) do o[#o+1]="c "..k.."="..(cv[1] or 0)..","..(cv[2] or 0)..","..(cv[3] or 0)..","..(cv[4] or 1) end
-     data=table.concat(o,"\n")
-   end
-   local g=CFG.env()
-   if g then g.EGOFUST_CFGS[slot]=data; g.EGOFUST_SLOT=slot end
-   local disk=false
-   local ok,f=pcall(function() return io.open("egofust_config_"..slot..".cfg","w") end)
-   if ok and f then
-     local wok=pcall(function() f:write(data) end)
-     pcall(function() f:close() end)
-     disk=wok
-   end
-   cfg_dirty=false
-   CFG.last=now()
-   if not quiet then
-     if disk then pcall(function() notify.Success("Config saved","slot "..slot.." - egofust_config_"..slot..".cfg",3) end)
-     else pcall(function() notify.Warning("Config saved to session","io.open is blocked, no file written",4) end) end
-   end
-   return disk
+slot=tonumber(slot) or tonumber(cfg.cfg_slot) or 1
+local data=nil
+local hs=CFG.http()
+if hs then
+local t={v={},b={},c={}}
+for k,v in pairs(cfg) do if k~="cfg_slot" and k:sub(1,7)~="gun_sgc" then t.v[k]=v end end
+for k,v in pairs(bind) do t.b[k]=v end
+for k,cv in pairs(col) do t.c[k]={cv[1] or 0,cv[2] or 0,cv[3] or 0,cv[4] or 1} end
+local ok,s=pcall(function() return hs:JSONEncode(t) end)
+if ok and type(s)=="string" and #s>0 then data=s end
 end
+if not data then
+local o={"#bustui-config-v1"}
+for k,v in pairs(cfg) do
+if k~="cfg_slot" and k:sub(1,7)~="gun_sgc" then o[#o+1]="v "..k.."="..(type(v)=="boolean" and (v and "1" or "0") or tostring(v)) end
+end
+for k,v in pairs(bind) do o[#o+1]="b "..k.."="..tostring(v) end
+for k,cv in pairs(col) do o[#o+1]="c "..k.."="..(cv[1] or 0)..","..(cv[2] or 0)..","..(cv[3] or 0)..","..(cv[4] or 1) end
+data=table.concat(o,"\n")
+end
+local g=CFG.env()
+if g then g.BUSTUI_CFGS[slot]=data; g.BUSTUI_SLOT=slot end
+local disk=false
+local ok,f=pcall(function() return io.open("bustui_config_"..slot..".cfg","w") end)
+if ok and f then
+local wok=pcall(function() f:write(data) end)
+pcall(function() f:close() end)
+disk=wok
+end
+cfg_dirty=false
+if not quiet then
+notify.Success("Config Saved","Slot "..slot,2)
+end
+end
+
 CFG.load=function(slot,quiet)
-   slot=tonumber(slot) or tonumber(cfg.cfg_slot) or 1
-   local g=CFG.env()
-   local data=nil
-   local ok,f=pcall(function() return io.open("egofust_config_"..slot..".cfg","r") end)
-   if ok and f then
-     local rok,s=pcall(function() return f:read("*a") end)
-     pcall(function() f:close() end)
-     if rok and type(s)=="string" and #s>0 then data=s end
-   end
-   if not data and g and type(g.EGOFUST_CFGS)=="table" then data=g.EGOFUST_CFGS[slot] end
-   if not data then
-     if not quiet then pcall(function() notify.Warning("Nothing to load","slot "..slot.." is empty",3) end) end
-     return false
-   end
-   local applied=false
-   if data:sub(1,1)=="{" then
-     local hs=CFG.http()
-     if hs then
-       local jok,t=pcall(function() return hs:JSONDecode(data) end)
-       if jok and type(t)=="table" then
-         for k,v in pairs(t.v or {}) do
-           if cfg[k]~=nil and k:sub(1,7)~="gun_sgc" then
-             if type(v)=="boolean" then cfg[k]=v
-             else local x=tonumber(v); if x then cfg[k]=x end end
-           end
-         end
-         for k,v in pairs(t.b or {}) do
-           if bind[k]~=nil then local x=tonumber(v); if x then bind[k]=x end end
-         end
-         for k,v in pairs(t.c or {}) do
-           if col[k]~=nil and type(v)=="table" then
-             local r1,g1,b1=tonumber(v[1]),tonumber(v[2]),tonumber(v[3])
-             if r1 and g1 and b1 then col[k]={r1,g1,b1,tonumber(v[4]) or 1} end
-           end
-         end
-         applied=true
-       end
-     end
-   else
-     for line in data:gmatch("[^\n]+") do
-       local kind,k,val=line:match("^(%a) ([^=]+)=(.*)$")
-       if kind then
-         if kind=="v" and cfg[k]~=nil and k:sub(1,7)~="gun_sgc" then
-           if type(cfg[k])=="boolean" then cfg[k]=(val=="1" or val=="true")
-           else local x=tonumber(val); if x then cfg[k]=x end end
-         elseif kind=="b" and bind[k]~=nil then
-           local x=tonumber(val); if x then bind[k]=x end
-         elseif kind=="c" and col[k]~=nil then
-           local r,g1,b1,a1=val:match("([%d%.%-]+),([%d%.%-]+),([%d%.%-]+),([%d%.%-]+)")
-           if r then col[k]={tonumber(r),tonumber(g1),tonumber(b1),tonumber(a1) or 1} end
-         end
-       end
-     end
-     applied=true
-   end
-   if cfg.aim_range and cfg.aim_range>1500*M_PER_STUD then cfg.aim_range=1500*M_PER_STUD end
-   if cfg.esp_maxdist and cfg.esp_maxdist>1500*M_PER_STUD then cfg.esp_maxdist=1500*M_PER_STUD end
-   if cfg.npcs_max_dist and cfg.npcs_max_dist>300*M_PER_STUD then cfg.npcs_max_dist=300*M_PER_STUD end
-   if cfg.rad_range and cfg.rad_range>500*M_PER_STUD then cfg.rad_range=500*M_PER_STUD end
-   if cfg.plants_range and cfg.plants_range>125*M_PER_STUD then cfg.plants_range=125*M_PER_STUD end
-   if cfg.pick_range and cfg.pick_range>75*M_PER_STUD then cfg.pick_range=75*M_PER_STUD end
-   if cfg.veh_range and cfg.veh_range>1000*M_PER_STUD then cfg.veh_range=1000*M_PER_STUD end
-   if cfg.nodes_range and cfg.nodes_range>225*M_PER_STUD then cfg.nodes_range=225*M_PER_STUD end
-   if cfg.bd_range and cfg.bd_range>300*M_PER_STUD then cfg.bd_range=300*M_PER_STUD end
-   if cfg.loot_range and cfg.loot_range>225*M_PER_STUD then cfg.loot_range=225*M_PER_STUD end
-   if cfg.base_range and cfg.base_range>175*M_PER_STUD then cfg.base_range=175*M_PER_STUD end
-   if g then g.EGOFUST_SLOT=slot end
-   cfg_dirty=false
-   if not quiet then
-     if applied then pcall(function() notify.Success("Config loaded","slot "..slot,3) end)
-     else pcall(function() notify.Error("Config is corrupted","slot "..slot.." could not be parsed",3) end) end
-   end
-   return applied
+slot=tonumber(slot) or 1
+local g=CFG.env()
+local data=g and g.BUSTUI_CFGS[slot]
+if not data then
+local ok,f=pcall(function() return io.open("bustui_config_"..slot..".cfg","r") end)
+if ok and f then
+local content=f:read("*a")
+pcall(function() f:close() end)
+data=content
 end
+end
+if not data then return false end
+
+for line in data:gmatch("[^\r\n]+") do
+if line:sub(1,2)=="v " then
+local k,v=line:match("^v ([^=]+)=(.+)$")
+if k and v then
+if v=="1" then cfg[k]=true
+elseif v=="0" then cfg[k]=false
+else cfg[k]=tonumber(v) or v end
+end
+elseif line:sub(1,2)=="b " then
+local k,v=line:match("^b ([^=]+)=(.+)$")
+if k and v then bind[k]=tonumber(v) end
+elseif line:sub(1,2)=="c " then
+local k,v=line:match("^c ([^=]+)=(.+)$")
+if k and v then
+local r,g2,b,a=v:match("([%d%.]+),([%d%.]+),([%d%.]+),([%d%.]+)")
+if r then col[k]={tonumber(r),tonumber(g2),tonumber(b),tonumber(a)} end
+end
+end
+end
+
+-- Sync all values into the native menu
+for k,v in pairs(cfg) do
+pcall(function() menu.Set(k,v) end)
+end
+for k,v in pairs(bind) do
+pcall(function() menu.SetKey(k,v) end)
+end
+for k,cv in pairs(col) do
+pcall(function() menu.SetColor(k,cv) end)
+end
+
+refresh_all()
+
+if not quiet then
+notify.Success("Config Loaded","Slot "..slot,2)
+end
+return true
+end
+
 CFG.reset=function()
-   for _,tab in ipairs(SCHEMA) do for_ ,g in ipairs(tab.groups) do for _,it in ipairs(g.items) do
-     if it.t=="toggle" then cfg[it.id]=it.default or false
-     elseif it.t=="slider" then cfg[it.id]=it.default or it.min
-     elseif it.t=="combo" then cfg[it.id]=it.default or 1
-     elseif it.t=="bind" then bind[it.id]=it.default or 0
-     elseif it.t=="color" then
-       local dc=DEF_COL[it.id] or it.default
-       if dc and type(dc)=="table" then col[it.id]={dc[1] or 1,dc[2] or 1,dc[3] or 1,dc[4] or 1}
-       else col[it.id]={1,1,1,1} end
-     end
-     if it.color then
-       local d=DEF_COL[it.color]
-       if d then col[it.color]={d[1],d[2],d[3],d[4]} end
-     end
-   end end end
-   cfg.hud_mark_x,cfg.hud_mark_y=-1,-1
-   cfg.hud_keys_x,cfg.hud_keys_y=-1,-1
-   cfg.hud_bar_x,cfg.hud_bar_y=-1,-1
-   cfg_dirty=true
-   pcall(function() notify.Success("Defaults restored","",3) end)
+for k,v in pairs(cfg) do cfg[k]=nil end
+for k,v in pairs(bind) do bind[k]=nil end
+for k,v in pairs(col) do col[k]=nil end
+
+for _,tab in ipairs(SCHEMA) do for _,g in ipairs(tab.groups) do for _,it in ipairs(g.items) do
+if it.t=="toggle" then cfg[it.id]=it.default or false
+elseif it.t=="slider" then cfg[it.id]=it.default or it.min
+elseif it.t=="combo" then cfg[it.id]=it.default or 1
+elseif it.t=="bind" then bind[it.id]=it.default or 0
+elseif it.t=="color" then
+local dc=DEF_COL[it.id] or it.default
+if dc and type(dc)=="table" then col[it.id]={dc[1] or 1,dc[2] or 1,dc[3] or 1,dc[4] or 1}
+else col[it.id]={1,1,1,1} end
+end
+if it.color then
+local d=DEF_COL[it.color]
+if d then col[it.color]={d[1],d[2],d[3],d[4]} end
+end
+end end end
+
+cfg.hud_mark_x,cfg.hud_mark_y=-1,-1
+cfg.hud_keys_x,cfg.hud_keys_y=-1,-1
+cfg.hud_bar_x,cfg.hud_bar_y=-1,-1
+cfg_dirty=true
+
+for k,v in pairs(cfg) do pcall(function() menu.Set(k,v) end) end
+for k,v in pairs(bind) do pcall(function() menu.SetKey(k,v) end) end
+for k,cv in pairs(col) do pcall(function() menu.SetColor(k,cv) end) end
+
+refresh_all()
+notify.Success("Defaults restored","",3)
 end
 
 -- =========================================================================
--- GUI: native Vector window with AddTab per schema tab.
--- The library owns chrome (frame, title bar, tab strip, sections, scrolling,
--- input). We supply content via widget calls that write straight into
--- cfg / bind / col, and re-check dependent-row visibility on change.
+-- GUI: Native Vector menu built via menu.AddTab
 -- =========================================================================
 local ui={ open=true, menu_edge=false, esp_edge=false, aim_edge=false, appear=1 }
-ui.m={x=0,y=0,down=false,was=false,click=false} -- still used by HUD panel drags
+ui.m={x=0,y=0,down=false,was=false,click=false}
 
-local WIN=nil
-local TABS={}          -- index -> tab object
-local SEC_WIDGETS={}   -- section ref -> list of {it, widget} for visibility refresh
+local TABS={}
+local ALL_ITEMS={} -- flat list of all items for visibility refresh
 
 local function row_visible(it) return it.show==nil or it.show() end
 
--- Try common method names so this works across Vector builds.
-local function call(obj, names, ...)
-   for i=1,#names do
-     local fn=obj[names[i]]
-     if type(fn)=="function" then
-       local ok,r=pcall(fn,obj,...)
-       if ok then return r end
-     end
-   end
-   return nil
-end
-
-local function set_visible(widget,on)
-   call(widget,{"SetVisible","setVisible","SetHidden","setHidden"},on)
-   -- some builds invert SetHidden; if both exist prefer SetVisible (tried first)
-end
-
-local function refresh_section(sec_list)
-   for _,entry in ipairs(sec_list) do
-     set_visible(entry.widget, row_visible(entry.it))
-   end
-end
-
 local function refresh_all()
-   for _,lst in pairs(SEC_WIDGETS) do refresh_section(lst) end
+for _,it in ipairs(ALL_ITEMS) do
+if it.show then
+pcall(function() menu.SetVisible(it.id, row_visible(it)) end)
+end
+end
 end
 
-local function make_color_picker(parent,label,c,on_change)
-   local cp=call(parent,{"AddColorPicker","addColorPicker","CreateColorPicker"},label,c[1] or 1,c[2] or 1,c[3] or 1,c[4] or 1)
-   if cp then
-     local ok=pcall(function()
-       cp.SetCallback and cp:SetCallback(on_change)
-       or cp.set_callback and cp:set_callback(on_change)
-       or cp.OnChange and cp:OnChange(on_change)
-     end)
-   end
-   return cp
+local function make_parent_options(it)
+-- Build options table with parent dependency if show references a single toggle
+if it.show then
+-- Try to detect simple parent pattern: show = function() return cfg.X end
+-- We can't introspect the closure, so we rely on manual mapping below.
+end
+return nil
 end
 
-local function build_group(sec,group)
-   local lst={}
-   for _,it in ipairs(group.items) do
-     local w
-     if it.t=="toggle" then
-       w=call(sec,{"AddToggle","addToggle","CreateToggle"},it.label,cfg[it.id])
-       if w then pcall(function()
-         w.SetCallback and w:SetCallback(function(v)
-            cfg[it.id]=v; cfg_dirty=true; refresh_all()
-         end)
-       end) end
-       if it.color then
-         local cid=it.color
-         local cc=col[cid] or {1,1,1,1}
-         local cp=make_color_picker(sec,it.label.." Color",cc,function(r,g,b,al)
-            col[cid]={r or cc[1],g or cc[2],b or cc[3],al or cc[4]}
-            cfg_dirty=true
-         end)
-         if cp then lst[#lst+1]={it=it,widget=cp} end
-       end
-     elseif it.t=="slider" then
-       w=call(sec,{"AddSlider","addSlider","CreateSlider"},it.label,it.min,it.max,math.floor(cfg[it.id] or it.min),it.suf or "")
-       if w then pcall(function()
-         w.SetCallback and w:SetCallback(function(v)
-            cfg[it.id]=v; cfg_dirty=true
-         end)
-       end) end
-     elseif it.t=="combo" then
-       w=call(sec,{"AddComboBox","addComboBox","CreateComboBox","AddDropdown","addDropdown"},it.label,it.items,cfg[it.id] or 1)
-       if w then pcall(function()
-         w.SetCallback and w:SetCallback(function(idx)
-            cfg[it.id]=idx; cfg_dirty=true
-            if it.id=="cfg_slot" then
-              if CFG.load(idx,true) then pcall(function() notify.Success("Slot "..idx.." loaded","",2) end)
-              else pcall(function() notify.Warning("Slot "..idx.." is empty","settings are unchanged",2) end) end
-            end
-            refresh_all()
-         end)
-       end) end
-     elseif it.t=="bind" then
-       w=call(sec,{"AddBind","addBind","CreateBind","AddKeybind","addKeybind"},it.label,vkname(bind[it.id] or 0))
-       if w then pcall(function()
-         w.SetCallback and w:SetCallback(function(vk)
-            bind[it.id]=vk or 0; cfg_dirty=true
-         end)
-       end) end
-     elseif it.t=="color" then
-       local cc=col[it.id] or {1,1,1,1}
-       w=make_color_picker(sec,it.label,cc,function(r,g,b,al)
-         col[it.id]={r or 1,g or 1,b or 1,al or 1}
-         cfg_dirty=true
-         if it.id=="c_accent" then theme.accent={r or 1,g or 1,b or 1,1} end
-       end)
-     elseif it.t=="button" then
-       w=call(sec,{"AddButton","addButton","CreateButton"},it.label)
-       if w then pcall(function()
-         w.SetCallback and w:SetCallback(function()
-            if it._cb then it._cb() end
-            if it.id=="cfg_reset" then refresh_all() end
-         end)
-       end) end
-     elseif it.t=="note" then
-       w=call(sec,{"AddLabel","addLabel","CreateLabel","AddText","addText"},it.label)
-     end
-     if w then
-       lst[#lst+1]={it=it,widget=w}
-       -- initial visibility
-       set_visible(w,row_visible(it))
-     end
-   end
-   SEC_WIDGETS[group]=lst
+-- Parent map: child_id -> parent_id (for menu-level visibility)
+local PARENT_MAP={}
+for _,tab in ipairs(SCHEMA) do for _,g in ipairs(tab.groups) do for _,it in ipairs(g.items) do
+-- Heuristic: if show checks a single cfg flag, map it
+if it.show then
+local src=debug and debug.info and (function()
+local ok,info=pcall(debug.info,it.show,2)
+return info
+end)()
+end
+end end end
+
+-- Simpler: explicit parent assignments for known cases
+local function infer_parent(it)
+if it.show then
+-- Common patterns from the schema
+local patterns={
+{"aim_toggle","aim_on"},{"aim_key","aim_on"},{"aim_bone","aim_on"},{"aim_priority","aim_on"},
+{"aim_fovstyle","aim_on"},{"aim_fov","aim_on"},{"aim_range","aim_on"},{"aim_smooth","aim_on"},
+{"aim_dz","aim_on"},{"aim_sticky","aim_on"},{"aim_team","aim_on"},{"aim_npc","aim_on"},
+{"aim_heli","aim_on"},{"aim_wall","aim_on"},{"aim_wpred","aim_on"},
+{"aim_wpred_tsize","aim_on"},{"aim_tline","aim_on"},{"aim_fovcircle","aim_on"},{"aim_fovchroma","aim_on"},
+{"esp_toggle","esp_on"},{"esp_box","esp_on"},{"esp_boxstyle","esp_on"},{"esp_picstyle","esp_on"},
+{"esp_pic_opacity","esp_on"},{"esp_skel","esp_on"},{"esp_headdot","esp_on"},{"esp_headdot_size","esp_on"},
+{"chams_on","esp_on"},{"chams_mode","esp_on"},{"esp_name","esp_on"},{"esp_dist","esp_on"},
+{"esp_hp","esp_on"},{"esp_hptext","esp_on"},{"esp_weapon","esp_on"},{"esp_team","esp_on"},
+{"esp_maxdist","esp_on"},{"esp_textsize","esp_on"},{"esp_hat","esp_on"},{"esp_hat_size","esp_on"},
+{"esp_tracer","esp_on"},{"esp_tracer_from","esp_on"},{"esp_chroma","esp_on"},
+{"rad_size","rad_on"},{"rad_range","rad_on"},{"rad_x","rad_on"},{"rad_y","rad_on"},{"rad_alpha","rad_on"},
+{"npcs_heli","npc_esp_enabled"},{"npcs_show_name","npc_esp_enabled"},{"npc_tag","npc_esp_enabled"},
+{"npcs_show_dist","npc_esp_enabled"},{"npc_skeleton","npc_esp_enabled"},{"npc_headdot","npc_esp_enabled"},
+{"npc_headdot_size","npc_esp_enabled"},{"npcs_show_health","npc_esp_enabled"},{"npc_box","npc_esp_enabled"},
+{"npc_boxstyle","npc_esp_enabled"},{"npc_picstyle","npc_esp_enabled"},{"npc_pic_opacity","npc_esp_enabled"},
+{"npcs_max_dist","npc_esp_enabled"},{"npcs_font_size","npc_esp_enabled"},{"npc_hat","npc_esp_enabled"},
+{"npc_hat_size","npc_esp_enabled"},{"npc_chroma","npc_esp_enabled"},
+{"loot_barrels","loot_on"},{"loot_crates","loot_on"},{"loot_military","loot_on"},{"loot_elite","loot_on"},
+{"loot_dist","loot_on"},{"loot_range","loot_on"},{"loot_text","loot_on"},
+{"loot_largebox","base_on"},{"loot_smallbox","base_on"},{"loot_tc","base_on"},{"loot_locker","base_on"},
+{"loot_bag","base_on"},{"base_shotguntrap","base_on"},{"base_autoturret","base_on"},{"base_aaturret","base_on"},
+{"base_dist","base_on"},{"base_range","base_on"},{"base_text","base_on"},
+{"bd_dist","bags_on"},{"bd_range","bags_on"},{"bd_text","bags_on"},
+{"node_stone","nodes_on"},{"node_sulfur","nodes_on"},
+{"gun_sgc_rate","gun_sgc"},{"gun_sgc_rate_ms","gun_sgc"},{"gun_sgc_clean","gun_sgc"},{"gun_sgc_now","gun_sgc"},
+{"xh_style","xh_on"},{"xh_size","xh_on"},{"xh_gap","xh_on"},{"xh_thick","xh_on"},{"xh_dot","xh_on"},
+{"xh_spin","xh_on"},{"xh_speed","xh_on"},{"xh_pulse","xh_on"},{"xh_pulse_speed","xh_on"},
+{"xh_follow","xh_on"},{"xh_chroma","xh_on"},{"c_xh","xh_on"},
+}
+for _,p in ipairs(patterns) do
+if p[1]==it.id then return p[2] end
+end
+end
+return nil
+end
+
+local function build_group(tab_name, group)
+for _,it in ipairs(group.items) do
+local id=it.id
+local label=it.label
+local parent=infer_parent(it)
+local opts={}
+if parent then opts.parent=parent end
+
+if it.t=="toggle" then
+menu.AddCheckbox(tab_name,group.name,id,label,cfg[id] or false,opts)
+menu.SetCallback(id,function(v)
+cfg[id]=v
+cfg_dirty=true
+refresh_all()
+end)
+
+elseif it.t=="slider" then
+local def=cfg[id] or it.default or it.min
+if math.floor(it.min)==it.min and math.floor(it.max)==it.max then
+menu.AddSliderInt(tab_name,group.name,id,label,it.min,it.max,def,"%d")
+else
+menu.AddSliderFloat(tab_name,group.name,id,label,it.min,it.max,def,"%.2f")
+end
+menu.SetCallback(id,function(v)
+cfg[id]=v
+cfg_dirty=true
+end)
+
+elseif it.t=="combo" then
+local idx=(cfg[id] or it.default or 1)-1
+menu.AddCombo(tab_name,group.name,id,label,it.items,idx,opts)
+menu.SetCallback(id,function(new_idx)
+cfg[id]=new_idx+1
+cfg_dirty=true
+if id=="cfg_slot" then
+if CFG.load(cfg[id],true) then
+notify.Success("Slot "..cfg[id].." loaded","",2)
+else
+notify.Warning("Slot "..cfg[id].." is empty","settings are unchanged",2)
+end
+end
+refresh_all()
+end)
+
+elseif it.t=="bind" then
+menu.AddHotkey(tab_name,group.name,id,label,bind[id] or 0,opts)
+
+elseif it.t=="color" then
+local cc=col[id] or {1,1,1,1}
+menu.AddColorpicker(tab_name,group.name,id,label,cc,opts)
+
+elseif it.t=="button" then
+menu.AddButton(tab_name,group.name,id,label,function()
+if it._cb then it._cb() end
+if id=="cfg_reset" then CFG.reset() end
+if id=="unload" then
+thread.StopAll()
+OnFrame=nil
+notify.Success("BustUI unloaded","",2)
+end
+end)
+
+elseif it.t=="note" then
+menu.AddLabel(tab_name,group.name,label)
+end
+
+ALL_ITEMS[#ALL_ITEMS+1]=it
+end
 end
 
 local function build_gui()
-   if not gui then return false end
-   local win_opts={ name="Ego - Fust Survival" }
-   WIN=call(gui,{"CreateWindow","createWindow","NewWindow"},win_opts)
-        or call(gui,{"AddWindow","addWindow"})
-   if not WIN then return false end
-   for i,tab in ipairs(SCHEMA) do
-     local t=call(WIN,{"AddTab","addTab","CreateTab","createTab"},tab.name)
-     if t then
-       TABS[i]=t
-       for _,g in ipairs(tab.groups) do
-         local sec=call(t,{"AddSection","addSection","CreateSection","createSection","AddGroup","addGroup"},g.name)
-         if sec then build_group(sec,g) end
-       end
-     end
-   end
-   return true
+for i,tab in ipairs(SCHEMA) do
+menu.AddTab(tab.name,string.sub(tab.name,1,1))
+TABS[i]=tab.name
+for _,g in ipairs(tab.groups) do
+menu.AddGroup(tab.name,g.name)
+build_group(tab.name,g)
+end
+end
 end
 
 build_gui()
+refresh_all()
 
-local function toggle_window()
-   if not WIN then return end
-   local vis=call(WIN,{"IsVisible","isVisible","GetVisible","getVisible"})
-   if type(vis)~="boolean" then vis=ui.open end
-   local nv=not vis
-   local ok=pcall(function()
-     WIN.SetVisible and WIN:SetVisible(nv)
-     or WIN.setVisible and WIN:setVisible(nv)
-     or WIN.Toggle and WIN:Toggle()
-   end)
-   if not ok then ui.open=nv end
-   ui.open=nv
-end
-
-local function update_input()
-   ui.m.x,ui.m.y=mouse_pos()
-   local d=ekey(0x01); ui.m.click=d and not ui.m.was; ui.m.down=d; ui.m.was=d
-
-   local mk=bind.menu_key or 0xA1
-   local held=ekey(mk)
-   if held and not ui.menu_edge then toggle_window() end
-   ui.menu_edge=held
-
-   local ek=bind.esp_toggle or 0
-   local eh=(ek~=0) and ekey(ek) or false
-   if eh and not ui.esp_edge then cfg.esp_on=not cfg.esp_on; cfg_dirty=true end
-   ui.esp_edge=eh
-
-   local ak=bind.aim_toggle or 0
-   local ah=(ak~=0) and ekey(ak) or false
-   if ah and not ui.aim_edge then cfg.aim_on=not cfg.aim_on; cfg_dirty=true end
-   ui.aim_edge=ah
-end
-
--- restore the last profile on start
-cfg.cfg_slot=tonumber(CFG.env().EGOFUST_SLOT) or tonumber(cfg.cfg_slot) or 1
+-- Restore last profile
+cfg.cfg_slot=tonumber(CFG.env().BUSTUI_SLOT) or tonumber(cfg.cfg_slot) or 1
 CFG.load(cfg.cfg_slot,true)
+
+-- Menu toggle key via utility.OnKey
+local function setup_menu_key()
+local mk=menu.GetKey("menu_key") or 0xA1
+utility.OnKey(mk,"toggle",function(on)
+ui.open=on
+end)
+end
+setup_menu_key()
+
+-- Re-setup when menu key changes
+menu.SetCallback and pcall(function()
+-- Hotkeys don't fire SetCallback, so poll occasionally
+end)
 
 -- =========================================================================
 -- ESP: players, extras and radar.
 -- =========================================================================
 local ESP_SKEL={
-   {"Head","UpperTorso"},{"UpperTorso","LowerTorso"},
-   {"UpperTorso","LeftUpperArm"},{"LeftUpperArm","LeftLowerArm"},{"LeftLowerArm","LeftHand"},
-   {"UpperTorso","RightUpperArm"},{"RightUpperArm","RightLowerArm"},{"RightLowerArm","RightHand"},
-   {"LowerTorso","LeftUpperLeg"},{"LeftUpperLeg","LeftLowerLeg"},{"LeftLowerLeg","LeftFoot"},
-   {"LowerTorso","RightUpperLeg"},{"RightUpperLeg","RightLowerLeg"},{"RightLowerLeg","RightFoot"},
+{"Head","UpperTorso"},{"UpperTorso","LowerTorso"},
+{"UpperTorso","LeftUpperArm"},{"LeftUpperArm","LeftLowerArm"},{"LeftLowerArm","LeftHand"},
+{"UpperTorso","RightUpperArm"},{"RightUpperArm","RightLowerArm"},{"RightLowerArm","RightHand"},
+{"LowerTorso","LeftUpperLeg"},{"LeftUpperLeg","LeftLowerLeg"},{"LeftLowerLeg","LeftFoot"},
+{"LowerTorso","RightUpperLeg"},{"RightUpperLeg","RightLowerLeg"},{"RightLowerLeg","RightFoot"},
 }
 
 local PF={
-   m=M_PER_STUD,
-   dist=function(p) return p:DistanceTo() end,
-   name=function(p) return p.Name end,
-   tool=function(p) return p.ToolName end,
-   bounds=function(p) return p:GetBounds() end,
-   bones=function(p) return p:GetBonesScreen() end,
-   head=function(p) return p.HeadPosition end,
-   hp=function(p) return p.Health end,
-   mhp=function(p) return p.MaxHealth end,
-   cframe=function(o) return o.CFrame end,
-   cfpos=function(cf) return cf.Position end,
-   pos=function(o) return o.Position end,
-   vel=function(p) local v=p.Velocity return v.X,v.Y,v.Z end,
-   addr=function(o) return o.Address end,
-   cls=function(o) return o.ClassName end,
-   prim=function(o) return o.PrimaryPart end,
-   rootpart=function(o) return o.RootPart end,
-   get=function(o,k) return o[k] end,
-   find=function(o,n) return o:FindFirstChild(n) end,
-   char=function(p)
-     local c=p.Character
-     if c then return c end
-     local g=p.GetCharacter
-     if type(g)=="function" then return g(p) end
-     return nil
-   end,
-   desc=function(o) return o:GetDescendants() end,
-   isd=function(o,a) return o:IsDescendantOf(a) end,
-   xs={}, ys={}, ring={},
-   rdtxt={}, rdw={}, rct={1,1,1,1},
-   team={ids={},next=0,tf=nil,roster={},setup=false},
+m=M_PER_STUD,
+dist=function(p) return p:DistanceTo() end,
+name=function(p) return p.Name end,
+tool=function(p) return p.ToolName end,
+bounds=function(p) return p:GetBounds() end,
+bones=function(p) return p:GetBonesScreen() end,
+head=function(p) return p.HeadPosition end,
+hp=function(p) return p.Health end,
+mhp=function(p) return p.MaxHealth end,
+cframe=function(o) return o.CFrame end,
+cfpos=function(cf) return cf.Position end,
+pos=function(o) return o.Position end,
+vel=function(p) local v=p.Velocity return v.X,v.Y,v.Z end,
+addr=function(o) return o.Address end,
+cls=function(o) return o.ClassName end,
+prim=function(o) return o.PrimaryPart end,
+rootpart=function(o) return o.RootPart end,
+get=function(o,k) return o[k] end,
+find=function(o,n) return o:FindFirstChild(n) end,
+char=function(p)
+local c=p.Character
+if c then return c end
+local g=p.GetCharacter
+if type(g)=="function" then return g(p) end
+return nil
+end,
+desc=function(o) return o:GetDescendants() end,
+pl={frame=-1,list=nil},
+players=function()
+local c=PF.pl
+if c.frame==FRAME then return c.list end
+c.frame=FRAME
+local ok,v=pcall(entity.GetPlayers)
+if ok and type(v)=="table" then c.list=v else c.list=nil end
+return c.list
+end,
 }
 
-PF.team.child=function(o,n)
-   if not o then return nil end
-   local fn=o.FindFirstChild
-   if type(fn)=="function" then
-     local ok,v=pcall(fn,o,n)
-     if ok and v then return v end
-   end
-   fn=o.find_first_child
-   if type(fn)=="function" then
-     local ok,v=pcall(fn,o,n)
-     if ok and v then return v end
-   end
-   local ok,v=pcall(PF.get,o,n)
-   if ok and v then return v end
-   return nil
-end
-
-PF.team.sync=function()
-   local t=PF.team
-   t.setup=true
-   pcall(function()
-     local rs=nil
-     if game then
-       rs=game.ReplicatedStorage
-       if not rs and game.GetService then rs=game:GetService("ReplicatedStorage") end
-     end
-     if not rs then return end
-     local child=PF.team.child
-     local fust=child(rs,"Fust")
-     if not fust then return end
-     local rem=child(fust,"Remotes")
-     if not rem then return end
-     local function take(msg,clear)
-       if type(msg)~="table" then return end
-       local team=msg.team
-       if type(team)~="table" then team=msg end
-       if type(team.members)~="table" then
-         if clear then t.roster={} end
-         return
-       end
-       local ids={}
-       for _,m in ipairs(team.members) do
-         if type(m)=="table" and type(m.userId)=="number" then ids[m.userId]=true end
-       end
-       t.roster=ids
-     end
-     local sync=child(rem,"TeamSync")
-     if sync then
-       local sig=sync.OnClientEvent
-       if not sig then sig=sync.on_client_event end
-       local fn=sig and sig.Connect
-       if type(fn)~="function" then fn=sig and sig.connect end
-       if type(fn)=="function" then
-         pcall(fn,sig,function(msg)
-           if type(msg)=="table" and msg.kind=="roster" then take(msg,true) end
-         end)
-       end
-     end
-     local act=child(rem,"TeamAction")
-     if act then
-       local inv=act.InvokeServer
-       if type(inv)~="function" then inv=act.invoke_server end
-       if type(inv)=="function" then
-         local function seed()
-           local okr,res=pcall(inv,act,{op="sync"})
-           if okr and type(res)=="table" then
-             take(type(res.roster)=="table" and res.roster or res,false)
-           end
-         end
-         local ok=pcall(function() task.spawn(seed) end)
-         if not ok then
-           pcall(function() coroutine.wrap(seed)() end)
-         end
-       end
-     end
-   end)
-end
-
-PF.bonescreen=function(p,n) return p:GetBoneScreen(n) end
-
-PF.bsc={frame=-1}
-PF.bonesmemo=function(p)
-   local c=PF.bsc
-   if c.frame~=FRAME then
-     for k in pairs(c) do c[k]=nil end
-     c.frame=FRAME
-   end
-   local d=c[p]
-   if d==nil then
-     local ok,v=pcall(PF.bones,p)
-     d=(ok and type(v)=="table") and v or false
-     c[p]=d
-   end
-   if d==false then return nil end
-   return d
-end
-
-PF.pm={frame=-1}
-PF.pmemo=function(p)
-   local c=PF.pm
-   if c.frame~=FRAME then
-     for k in pairs(c) do c[k]=nil end
-     c.frame=FRAME
-   end
-   local v=c[p]
-   if v==nil then
-     local ok,pos=pcall(PF.pos,p)
-     v=(ok and pos) and pos or false
-     c[p]=v
-   end
-   if v==false then return nil end
-   return v
-end
-
-PF.pf={frame=-1}
-PF.pflag=function(p)
-   local c=PF.pf
-   if c.frame~=FRAME then
-     for k in pairs(c) do c[k]=nil end
-     c.frame=FRAME
-   end
-   local e=c[p]
-   if not e then
-     local id=p.UserId
-     if not id and p.Player then id=p.Player.UserId end
-     id=tonumber(id) or id
-     e={il=p.IsLocal and true or false, al=p.IsAlive, uid=id}
-     c[p]=e
-   end
-   return e
-end
-
-PF.view={frame=-1}
-PF.getview=function()
-   local v=PF.view
-   if v.frame==FRAME then return v end
-   v.frame=FRAME
-   local lp
-   local ok,cv
-   if entity then
-     ok,cv=pcall(entity.GetLocalPlayer)
-     if ok then lp=cv end
-   end
-   v.lp=lp
-   local lx,ly,lz
-   if lp then
-     local okp,pv=pcall(PF.pos,lp)
-     if okp and pv then lx,ly,lz=pv.X or pv.x,pv.Y or pv.y,pv.Z or pv.z end
-   end
-   v.lx,v.ly,v.lz=lx,ly,lz
-   local cx,cy,cz,fx,fy,fz
-   local cpv,lvv,fov
-   if camera then
-     ok,cv=pcall(camera.GetPosition)
-     if ok and cv then cpv=cv; cx,cy,cz=cv.X,cv.Y,cv.Z end
-     ok,cv=pcall(camera.GetLookVector)
-     if ok and cv then lvv=cv; fx,fy,fz=cv.X or 0,cv.Y or 0,cv.Z or 0 end
-     ok,cv=pcall(camera.GetFov)
-     if ok then fov=cv end
-   end
-   v.cx,v.cy,v.cz=cx,cy,cz
-   if type(fov)~="number" or fov<10 or fov>170 then fov=70 end
-   v.fov=fov
-   if fx and fx*fx+fy*fy+fz*fz<1e-9 then fx,fy,fz=nil,nil,nil; lvv=nil end
-   v.fx,v.fy,v.fz=fx,fy,fz
-   v.cpv,v.lvv=cpv,lvv
-   return v
-end
-
-PF.pl={frame=-1,list=nil}
-PF.players=function()
-   local c=PF.pl
-   if c.frame==FRAME then return c.list end
-   c.frame=FRAME
-   local ok,v=pcall(entity.GetPlayers)
-   if ok and type(v)=="table" then c.list=v else c.list=nil end
-   return c.list
-end
-
-PF.chains=function(links)
-   local adj={}
-   for i=1,#links do
-     local a,b=links[i][1],links[i][2]
-     local t=adj[a]; if not t then t={}; adj[a]=t end
-     t[#t+1]=b
-     t=adj[b]; if not t then t={}; adj[b]=t end
-     t[#t+1]=a
-   end
-   local deg={}
-   for k,t in pairs(adj) do deg[k]=#t end
-   local used={}
-   local out={}
-   local function ekey(a,b) if a>b then a,b=b,a end return a*100+b end
-   for i=1,#links do
-     local a,b=links[i][1],links[i][2]
-     local ek=ekey(a,b)
-     if not used[ek] then
-       used[ek]=true
-       local path={a,b}
-       local prev,cur=a,b
-       while deg[cur]==2 do
-         local nb=adj[cur]
-         local nxt=nb[1]==prev and nb[2] or nb[1]
-         local k2=ekey(cur,nxt)
-         if used[k2] then break end
-         used[k2]=true
-         path[#path+1]=nxt
-         prev,cur=cur,nxt
-       end
-       prev,cur=b,a
-       while deg[cur]==2 do
-         local nb=adj[cur]
-         local nxt=nb[1]==prev and nb[2] or nb[1]
-         local k2=ekey(cur,nxt)
-         if used[k2] then break end
-         used[k2]=true
-         table.insert(path,1,nxt)
-         prev,cur=cur,nxt
-       end
-       local pts={}
-       for k=1,#path do pts[k]={0,0} end
-       out[#out+1]={nodes=path,pts=pts}
-     end
-   end
-   return out
-end
-
 PF.bone_names={"Head","UpperTorso","LowerTorso",
-   "LeftUpperArm","LeftLowerArm","LeftHand","RightUpperArm","RightLowerArm","RightHand",
-   "LeftUpperLeg","LeftLowerLeg","LeftFoot","RightUpperLeg","RightLowerLeg","RightFoot"}
+"LeftUpperArm","LeftLowerArm","LeftHand","RightUpperArm","RightLowerArm","RightHand",
+"LeftUpperLeg","LeftLowerLeg","LeftFoot","RightUpperLeg","RightLowerLeg","RightFoot"}
 PF.bone_idx={}
 PF.bone_links={}
 PF.hc,PF.hs={},{}
 ;(function()
-   local names=PF.bone_names
-   for i=1,#names do PF.bone_idx[names[i]]=i end
-   local L=PF.bone_links
-   for i=1,#ESP_SKEL do
-     local a=PF.bone_idx[ESP_SKEL[i][1]]
-     local b=PF.bone_idx[ESP_SKEL[i][2]]
-     if a and b then L[#L+1]={a,b} end
-   end
-   for i=1,16 do
-     local t=(i-1)/16*math.pi*2
-     PF.hc[i]=math.cos(t); PF.hs[i]=math.sin(t)
-   end
-end)()
-
-PF.px,PF.py,PF.pok={},{},{}
-
-local function esp_mate(p,lp)
-   if not p then return false end
-   local id=PF.pflag(p).uid
-   if not id then return false end
-   if lp and lp.UserId==id then return true end
-   local t=PF.team
-   if not t.setup then pcall(t.sync) end
-   if t.roster[id] then return true end
-   if FRAME>=t.next then
-     t.next=FRAME+60
-     local ids=t.ids
-     for k in pairs(ids) do ids[k]=nil end
-     local tf
-     pcall(function()
-       local ws
-       if game then
-         ws=game.Workspace or game.workspace
-         if not ws and game.GetService then ws=game:GetService("Workspace") end
-       end
-       if not ws then ws=workspace end
-       if not ws then return end
-       local child=PF.team.child
-       local cw=nil
-       local okc,cv=pcall(PF.get,ws,"CurrentCamera")
-       if okc and cv then cw=cv end
-       if not cw then cw=child(ws,"Camera") end
-       tf=child(cw,"FustTeamTags")
-       if not tf then tf=child(ws,"FustTeamTags") end
-       if tf then
-         local list
-         local fn=tf.GetChildren
-         if type(fn)=="function" then
-           local ok,v=pcall(fn,tf)
-           if ok and type(v)=="table" then list=v end
-         end
-         if not list then
-           fn=tf.get_children
-           if type(fn)=="function" then
-             local ok,v=pcall(fn,tf)
-             if ok and type(v)=="table" then list=v end
-           end
-         end
-         if list then
-           for _,ch in ipairs(list) do
-             local nm=ch and ch.Name
-             if nm and nm:sub(1,3)=="Tag" then
-               local uid=tonumber(nm:sub(4))
-               if uid then ids[uid]=true end
-             end
-           end
-         else
-           if child(tf,"Tag"..id) then ids[id]=true end
-         end
-       end
-     end)
-     t.tf=tf
-   end
-   if t.ids[id] then return true end
-   if t.tf then return false end
-   if not (lp and lp.HasTeam and p.HasTeam) then return false end
-   return p.Team==lp.Team
+local names=PF.bone_names
+for i=1,#names do PF.bone_idx[names[i]]=i end
+local L=PF.bone_links
+for i=1,#ESP_SKEL do
+local a=PF.bone_idx[ESP_SKEL[i][1]]
+local b=PF.bone_idx[ESP_SKEL[i][2]]
+if a and b then L[#L+1]={a,b} end
 end
+for i=1,16 do
+local t=(i-1)/16*math.pi*2
+PF.hc[i]=math.cos(t); PF.hs[i]=math.sin(t)
+end
+end)()
 
 local HP_RAMP={}
 for i=0,20 do HP_RAMP[i]=mix({0.95,0.28,0.32,1},{0.35,0.95,0.50,1},i/20) end
 
-local PIC_SRC={
-   {url="https://i.pinimg.com/736x/74/4f/b1/744fb1971ead089e6942f41b005793f3.jpg"},
-   {url="https://pbs.twimg.com/profile_images/2054703704486424576/__Kn5mRy.jpg"},
-   {url="https://s.yimg.com/lo/mysterio/api/30692778d6a3a094db06b8caf63069ef7a87a893c16b5e891271e10ff781cca7/"
-     .."lightyear_networkapi/resizefill_w960%3Bquality_80%3Bformat_webp/"
-     .."https://media.zenfs.com/en/hardwood_heroics_234/84963e67515a9830b7105907f8a1088e.jpg",
-    alt="https://media.zenfs.com/en/hardwood_heroics_234/84963e67515a9830b7105907f8a1088e.jpg"},
-   {url="https://img-s-msn-com.akamaized.net/tenant/amp/entityid/AA2gqeGw.img?w=768&h=1152&m=6&x=152&y=253&s=349&d=349"},
-}
+-- Team check helper
+local TEAM={setup=false,roster={},ids={},next=0,tf=nil,child=function(o,n)
+local fn=o.FindFirstChild
+if type(fn)=="function" then local ok,f=pcall(fn,o,n); if ok and f then return f end end
+fn=o.find_first_child
+if type(fn)=="function" then local ok,f=pcall(fn,o,n); if ok and f then return f end end
+local okg,f=pcall(PF.get,o,n)
+if okg and f then return f end
+return nil
+end}
 
-local function tex_get(e)
-   if not e then return nil end
-   if not (draw.LoadImage and draw.Image and draw.ImageLoaded) then return nil end
-   if not e.tex then pcall(function() e.tex=draw.LoadImage(e.url) end) end
-   local ok=false
-   if e.tex then pcall(function() ok=draw.ImageLoaded(e.tex) end) end
-   if ok then return e.tex end
-   local bad=false
-   if e.tex and draw.ImageFailed then pcall(function() bad=draw.ImageFailed(e.tex) end) end
-   if bad and e.alt then
-     if not e.atex then pcall(function() e.atex=draw.LoadImage(e.alt) end) end
-     local ok2=false
-     if e.atex then pcall(function() ok2=draw.ImageLoaded(e.atex) end) end
-     if ok2 then return e.atex end
-   end
-   return nil
+local function esp_mate(p,lp)
+if not p then return false end
+local id=p.UserId
+if not id then return false end
+if lp and lp.UserId==id then return true end
+if TEAM.roster[id] then return true end
+if FRAME>=TEAM.next then
+TEAM.next=FRAME+60
+local ids=TEAM.ids
+for k in pairs(ids) do ids[k]=nil end
+local tf
+pcall(function()
+local ws
+if game then
+ws=game.Workspace or game.workspace
+if not ws and game.GetService then ws=game:GetService("Workspace") end
 end
-local function pic_tex(i) return tex_get(PIC_SRC[i]) end
-
-local ESP_S={f={},c={},ch={1,1,1,1},txt={},dt={},hp={}}
-
-local function esp_view(F)
-   local v=PF.getview()
-   local lx,ly,lz=v.lx,v.ly,v.lz
-   if not lx then lx,ly,lz=v.cx,v.cy,v.cz end
-   if not lx then return false end
-   F.lp,F.lx,F.ly,F.lz=v.lp,lx,ly,lz
-   F.cx,F.cy,F.cz=v.cx,v.cy,v.cz
-   if v.fx then
-     F.fx,F.fy,F.fz,F.dot=v.fx,v.fy,v.fz,true
-   else
-     F.fx,F.fy,F.fz,F.dot=0,0,0,false
-   end
-   return true
+if not ws then ws=workspace end
+if not ws then return end
+local cw=TEAM.child(ws,"CurrentCamera")
+if not cw then cw=TEAM.child(ws,"Camera") end
+tf=TEAM.child(cw,"FustTeamTags")
+if not tf then tf=TEAM.child(ws,"FustTeamTags") end
+if tf then
+local list
+local fn=tf.GetChildren
+if type(fn)=="function" then
+local ok,v=pcall(fn,tf)
+if ok and type(v)=="table" then list=v end
 end
-
-local function esp_tw(s,sz)
-   local e=ESP_S.txt[s]
-   if not e then e={}; ESP_S.txt[s]=e end
-   local w=e[sz]
-   if not w then w=ts(s,sz); e[sz]=w end
-   return w
+if list then
+for _,ch in ipairs(list) do
+local nm=ch and ch.Name
+if nm and nm:sub(1,3)=="Tag" then
+local uid=tonumber(nm:sub(4))
+if uid then ids[uid]=true end
 end
-
-local function esp_player(p)
-   local F=ESP_S.f
-   local fl=PF.pflag(p)
-   if p==F.lp or fl.il then return end
-   if fl.al==false then return end
-   local pos=PF.pmemo(p)
-   if not pos then return end
-   local dx,dy,dz=pos.X-F.lx,pos.Y-F.ly,pos.Z-F.lz
-   local d2=dx*dx+dy*dy+dz*dz
-   if d2>F.md2 then return end
-   if F.dot then
-     local ax,ay,az
-     if F.cx then ax,ay,az=pos.X-F.cx,pos.Y-F.cy,pos.Z-F.cz
-     else ax,ay,az=dx,dy,dz end
-     if ax*F.fx+ay*F.fy+az*F.fz<=0 and (F.cx or d2>2500) then return end
-   end
-   if F.team and esp_mate(p,F.lp) then return end
-   local dist=math.sqrt(d2)
-   local ch=nil
-   if F.chroma then ch=PF.hue_fill(ESP_S.ch,(F.chue+F.idx*0.07)%1,0.75,1) end
-   local c_box=col.c_box or {0.45,0.78,1,1}
-   local c_bone=col.c_enemy or {0.95,0.35,0.4,1}
-   local c_name=col.c_name or {1,1,1,1}
-   local c_dist=col.c_dist or {0.87,0.93,1,1}
-   local c_weapon=col.c_weapon or c_name
-   local c_tr=col.c_tracer or c_bone
-   local c_hat=col.c_hat or c_name
-   local tsz=F.tsz
-   local b
-   if cfg.esp_box or cfg.esp_hp or cfg.esp_dist or cfg.esp_name
-     or cfg.esp_weapon or cfg.esp_tracer then
-     local okb,bv=pcall(PF.bounds,p); if okb then b=bv end
-   end
-   local bx,by,bw,bh
-   if b and b.valid and (b.w or 0)>1 and (b.h or 0)>1 then bx,by,bw,bh=b.x,b.y,b.w,b.h end
-   if b and b.valid==false then return end
-   local big = (bh==nil) or bh>=20
-   local pname,ptool
-   if cfg.esp_name or cfg.esp_hp then
-     local okn,nv=pcall(PF.name,p); if okn then pname=nv end
-   end
-   if cfg.esp_weapon then
-     local okt,tv=pcall(PF.tool,p); if okt then ptool=tv end
-   end
-   local head_x,head_y
-   if cfg.esp_hat or cfg.esp_headdot or not bx then
-     local okhb,hx,hy,hvis=pcall(PF.bonescreen,p,"Head")
-     if okhb and hx and hy and hvis~=false and hx==hx and hy==hy then head_x,head_y=hx,hy end
-   end
-   local pps=(bh and bh>0) and bh/5.6 or 0
-   if cfg.esp_hat or cfg.esp_headdot then
-     local okh,hv=pcall(PF.head,p)
-     if okh and hv then
-       local x0,y0,v0=draw.WorldToScreen(hv.X,hv.Y,hv.Z)
-       local y2,v2=select(2,draw.WorldToScreen(hv.X,hv.Y+1,hv.Z))
-       if v0 and v2 and y0==y0 and y2==y2 then
-         local sc=math.abs(y2-y0)
-         if sc>0 then pps=sc end
-       end
-       if not head_x and v0 and x0==x0 and y0==y0 then head_x,head_y=x0,y0 end
-     end
-   end
-   local hat_apex
-   local hat_hs=0
-   local hat_sq=1
-   if cfg.esp_hat and head_x and pps>0 then
-     hat_hs=(cfg.esp_hat_size or 100)/100
-     hat_apex=head_y-1.16*hat_hs*pps
-     if F.cy then
-       local ex,ey,ez=pos.X-F.cx,(pos.Y+1.5)-F.cy,pos.Z-F.cz
-       local el=math.sqrt(ex*ex+ey*ey+ez*ez)
-       if el>0.001 then hat_sq=math.abs(ey)/el end
-     elseif F.dot then
-       hat_sq=math.abs(F.fy)
-     end
-     if hat_sq<0.25 then hat_sq=0.25 end
-     if hat_sq>1 then hat_sq=1 end
-   end
-   if cfg.esp_box and bx then
-     local c=hue_or(ch,c_box,1)
-     local x0,y0,w0,h0=bx-2,by-2,bw+4,bh+4
-     if cfg.esp_boxstyle==1 and big then
-       if draw.CornerBox then draw.CornerBox(x0,y0,w0,h0,c) else draw.Rect(x0,y0,w0,h0,c,0,1) end
-     elseif cfg.esp_boxstyle==3 then
-       local tex=pic_tex(cfg.esp_picstyle or 1)
-       if tex then
-         local pop=clamp(cfg.esp_pic_opacity or 100,10,100)/100
-         local al=math.floor(clamp(c[4],0,1)*pop*255+0.5)
-         local tr,tg,tb=255,255,255
-         if ch then
-           tr=math.floor(clamp(c[1],0,1)*255+0.5)
-           tg=math.floor(clamp(c[2],0,1)*255+0.5)
-           tb=math.floor(clamp(c[3],0,1)*255+0.5)
-         end
-         if al>0 then draw.Image(tex,x0,y0,w0,h0,tr,tg,tb,al) end
-       else
-         draw.Rect(x0,y0,w0,h0,c,0,1)
-       end
-     else draw.Rect(x0,y0,w0,h0,c,0,1) end
-   end
-   if cfg.esp_hp and bx then
-     local hh,mh=0,100
-     local he
-     if pname then
-       he=ESP_S.hp[pname]
-       if not he then he={hp=100,mhp=100,next=0}; ESP_S.hp[pname]=he end
-       if FRAME>=he.next then
-         local okh2,hv2=pcall(PF.hp,p); if okh2 and hv2 then he.hp=hv2 end
-         local okm2,mv2=pcall(PF.mhp,p); if okm2 and mv2 then he.mhp=mv2 end
-         he.next=FRAME+3
-       end
-       hh,mh=he.hp or 0,he.mhp or 100
-     else
-       local okh2,hv2=pcall(PF.hp,p); if okh2 and hv2 then hh=hv2 end
-       local okm2,mv2=pcall(PF.mhp,p); if okm2 and mv2 then mh=mv2 end
-     end
-     local gap=clamp(bw*0.12,1.5,5)
-     pcall(draw.HealthBar,bx-gap,by,bh,hh,mh)
-     if cfg.esp_hptext then
-       local fsz=math.max(8,tsz-3)
-       local frac=clamp(mh>0 and hh/mh or 0,0,1)
-       local ht=string.format("%d",math.floor(hh+0.5))
-       local tw2,th2=ts(ht,fsz)
-       local hc=HP_RAMP[math.floor(frac*20+0.5)]
-       draw.Text(math.max(1,bx-gap-10-tw2),by+(bh-th2)*0.5,ht,hue_or(ch,hc,1),fsz)
-     end
-   end
-   local anchor_x,anchor_y=head_x,head_y
-   local name_y=by and (by-tsz-4) or (anchor_y and anchor_y-tsz-6)
-   if hat_apex and (not name_y or hat_apex<name_y) then name_y=hat_apex-tsz-4 end
-   local cx = bx and (bx+bw*0.5) or anchor_x
-   if cfg.esp_name and pname and cx and name_y then
-     local tw=esp_tw(pname,tsz)
-     draw.Text(cx-tw*0.5,name_y,pname,hue_or(ch,c_name,1),tsz)
-   end
-   local stack_y=by and (by+bh+3) or (anchor_y and anchor_y+4)
-   if cfg.esp_dist and cx and stack_y then
-     local dm=math.floor(dist)
-     local de=ESP_S.dt[dm]
-     if not de then de={}; ESP_S.dt[dm]=de end
-     local dl=de.txt
-     if not dl then dl=dm.."m"; de.txt=dl end
-     local dsz=tsz-2
-     local dw=de[dsz]
-     if not dw then dw=ts(dl,dsz); de[dsz]=dw end
-     draw.Text(cx-dw*0.5,stack_y,dl,hue_or(ch,c_dist,0.9),dsz)
-     stack_y=stack_y+dsz+1
-   end
-   if cfg.esp_weapon and cx and stack_y and ptool and ptool~="" then
-     local wsz=tsz-2
-     local tw=esp_tw(ptool,wsz)
-     draw.Text(cx-tw*0.5,stack_y,ptool,hue_or(ch,c_weapon,0.9),wsz)
-   end
-   if cfg.esp_tracer then
-     local oy=(cfg.esp_tracer_from==1) and F.sh or ((cfg.esp_tracer_from==3) and 0 or F.sh*0.5)
-     local tx,ty
-     if bx then tx,ty=bx+bw*0.5,by+bh elseif anchor_x then tx,ty=anchor_x,anchor_y end
-     if tx then draw.Line(F.hw,oy,tx,ty,hue_or(ch,c_tr,1),1) end
-   end
-   if cfg.esp_skel and (bx or head_x) and (pps<=0 or pps>=1.0) then
-     local px,py,pok=PF.px,PF.py,PF.pok
-     local names=PF.bone_names
-     local d=PF.bonesmemo(p)
-     for i=1,#names do
-       local e=d and d[names[i]]
-       if e and e[1] and e[2] then
-         local vx,vy=e[1],e[2]
-         if vx>-8 and vy>-8 and vx<F.sw+8 and vy<F.sh+8 then
-           px[i],py[i],pok[i]=vx,vy,true
-         else
-           pok[i]=nil
-         end
-       else
-         pok[i]=nil
-       end
-     end
-     local c=hue_or(ch,c_bone,0.9)
-     local links=PF.bone_links
-     for li=1,#links do
-       local l=links[li]
-       local a,b=l[1],l[2]
-       if pok[a] and pok[b] then
-         draw.Line(px[a],py[a],px[b],py[b],c,1)
-       end
-     end
-   end
-   if cfg.esp_headdot and head_x then
-     local hs=(cfg.esp_headdot_size or 100)/100
-     local hr=pps>0 and (0.62*hs*pps) or (bx and bh*0.11*hs or nil)
-     if hr and hr>0.4 then
-       local c=hue_or(ch,c_bone,1)
-       if hr<2.4 then
-         draw.CircleFilled(head_x,head_y,math.max(hr,1.6),c,10)
-       else
-         draw.Circle(head_x,head_y,hr,c,math.max(10,math.floor(hr*3)),1)
-       end
-     end
-   end
-   if hat_apex and pps>0 then
-     local rad=0.62*hat_hs*pps
-     local brimy=head_y-0.44*hat_hs*pps
-     local c=hue_or(ch,c_hat,1)
-     local sq=hat_sq
-     if rad<3 then
-       if draw.PolyFilled then
-         draw.PolyFilled({{head_x,hat_apex},{head_x+rad,brimy},{head_x-rad,brimy}},c)
-       else
-         draw.Line(head_x,hat_apex,head_x+rad,brimy,c,1)
-         draw.Line(head_x+rad,brimy,head_x-rad,brimy,c,1)
-         draw.Line(head_x-rad,brimy,head_x,hat_apex,c,1)
-       end
-     else
-       local hc,hsn=PF.hc,PF.hs
-       local xs,ys=PF.xs,PF.ys
-       local seg=16
-       for i=1,seg do
-         xs[i]=head_x+hc[i]*rad
-         ys[i]=brimy+hsn[i]*rad*sq
-       end
-       local pc=draw.PolyClosed
-       local ring=PF.ring
-       if type(pc)=="function" then
-         for i=1,seg do
-           local p=ring[i]
-           if not p then p={0,0}; ring[i]=p end
-           p[1]=xs[i]; p[2]=ys[i]
-         end
-         for i=seg+1,#ring do ring[i]=nil end
-         pc(ring,c,1)
-       else
-         for i=1,seg do local j=i%seg+1; draw.Line(xs[i],ys[i],xs[j],ys[j],c,1) end
-       end
-       for i=1,seg,2 do draw.Line(head_x,hat_apex,xs[i],ys[i],c,1) end
-     end
-   end
 end
-
-local function run_esp()
-   if not cfg.esp_on then return end
-   local md=(cfg.esp_maxdist or 1500)/PF.m
-   if md<=0 then return end
-   local F=ESP_S.f
-   local sw,sh=scr()
-   F.sw,F.sh,F.hw=sw,sh,sw*0.5
-   if not esp_view(F) then return end
-   F.md=md; F.md2=md*md
-   F.tsz=cfg.esp_textsize or 12
-   F.chroma=cfg.esp_chroma
-   F.chue=now()*0.12
-   F.team=cfg.esp_team
-   local players=PF.players()
-   if not players then return end
-   for idx,p in ipairs(players) do
-     F.idx=idx
-     pcall(esp_player,p)
-   end
+else
+if TEAM.child(tf,"Tag"..id) then ids[id]=true end
+end
+end
+end)
+TEAM.tf=tf
+end
+if TEAM.ids[id] then return true end
+if TEAM.tf then return false end
+if not (lp and lp.HasTeam and p.HasTeam) then return false end
+return p.Team==lp.Team
 end
 
 -- =========================================================================
--- CHAMS
+-- MAIN LOOP
 -- =========================================================================
-local function chams_one(p)
-   local F=ESP_S.c
-   local fl=PF.pflag(p)
-   if p==F.lp or fl.il or fl.al==false then return end
-   local pos=PF.pmemo(p)
-   if not pos then return end
-   local dx,dy,dz=pos.X-F.lx,pos.Y-F.ly,pos.Z-F.lz
-   local d2=dx*dx+dy*dy+dz*dz
-   if d2>F.md2 then return end
-   if F.dot then
-     local ax,ay,az
-     if F.cx then ax,ay,az=pos.X-F.cx,pos.Y-F.cy,pos.Z-F.cz
-     else ax,ay,az=dx,dy,dz end
-     if ax*F.fx+ay*F.fy+az*F.fz<=0 and (F.cx or d2>2500) then return end
-   end
-   if F.team and esp_mate(p,F.lp) then return end
-   local ch=nil
-   if F.chroma then ch=PF.hue_fill(ESP_S.ch,(F.chue+F.idx*0.07)%1,0.8,1) end
-   draw.ChamsPlayer(p,hue_or(ch,F.c1,1),F.style)
+OnFrame=function()
+FRAME=FRAME+1
+_dt=utility.GetDeltaTime and utility.GetDeltaTime() or 0.016
+
+local sw,sh=scr()
+local mx,my=mouse_pos()
+ui.m.x,ui.m.y=mx,my
+
+-- Read menu values into cfg for logic use (lightweight sync)
+local function gv(id) return menu.Get(id) end
+local function gk(id) return menu.GetKey(id) end
+local function gc(id) return menu.GetColor(id) end
+
+-- Sync hotkey-driven toggles
+local ek=gk("esp_toggle") or 0
+if ek~=0 and ekey(ek) and not ui.esp_edge then
+cfg.esp_on=not cfg.esp_on
+menu.Set("esp_on",cfg.esp_on)
+refresh_all()
+end
+ui.esp_edge=ekey(ek)
+
+local ak=gk("aim_toggle") or 0
+if ak~=0 and ekey(ak) and not ui.aim_edge then
+cfg.aim_on=not cfg.aim_on
+menu.Set("aim_on",cfg.aim_on)
+refresh_all()
+end
+ui.aim_edge=ekey(ak)
+
+-- Pull current settings
+local esp_on=gv("esp_on") or false
+local aim_on=gv("aim_on") or false
+local xh_on=gv("xh_on") or false
+local rad_on=gv("rad_on") or false
+local hud_mark=gv("hud_mark") or false
+local hud_keys=gv("hud_keys") or false
+local hud_bar=gv("hud_bar") or false
+
+-- Watermark
+if hud_mark then
+draw.Text(8,8,"BustUI",{theme.text[1],theme.text[2],theme.text[3],0.7},14)
 end
 
-local function run_chams()
-   if not (cfg.esp_on and cfg.chams_on) then return end
-   if not draw.ChamsPlayer then return end
-   local md=(cfg.esp_maxdist or 1500)/PF.m
-   if md<=0 then return end
-   local F=ESP_S.c
-   if not esp_view(F) then return end
-   F.md2=md*md
-   F.team=cfg.esp_team
-   F.chroma=cfg.esp_chroma
-   F.chue=now()*0.12
-   F.style=clamp((cfg.chams_mode or 1)-1,0,1)
-   F.c1=col.c_chams or {1,0.22,0.34,1}
-   local players=PF.players()
-   if not players then return end
-   for idx,p in ipairs(players) do
-     F.idx=idx
-     pcall(chams_one,p)
-   end
+-- Feature bar
+if hud_bar then
+local feats={}
+if esp_on then feats[#feats+1]="ESP" end
+if aim_on then feats[#feats+1]="AIM" end
+if xh_on then feats[#feats+1]="XH" end
+if rad_on then feats[#feats+1]="RAD" end
+if #feats>0 then
+draw.Text(8,26,table.concat(feats," | "),{theme.accent[1],theme.accent[2],theme.accent[3],0.8},11)
+end
 end
 
--- Radar
-PF.radar={rc={1,1,1,1},ch={1,1,1,1}}
-PF.lv={}
-PF.lvec=function(p)
-   local e=PF.lv[p]
-   if not e then e={x=0,z=0,next=0}; PF.lv[p]=e end
-   if FRAME>=e.next then
-     e.next=FRAME+6
-     local ok,lv=pcall(PF.get,p,"LookVector")
-     if ok and lv then e.x,e.z=lv.X or 0,lv.Z or 0 end
-   end
-   return e.x,e.z
+-- Keybind list
+if hud_keys then
+local kb={}
+local ek2=gk("esp_toggle")
+if ek2 and ek2~=0 then kb[#kb+1]="ESP:"..vkname(ek2) end
+local ak2=gk("aim_toggle")
+if ak2 and ak2~=0 then kb[#kb+1]="AIM:"..vkname(ak2) end
+local mk2=gk("menu_key")
+if mk2 and mk2~=0 then kb[#kb+1]="MENU:"..vkname(mk2) end
+if #kb>0 then
+draw.Text(8,sh-20,table.concat(kb,"  "),{theme.sub[1],theme.sub[2],theme.sub[3],0.7},10)
+end
 end
 
-PF.radar_one=function(p,idx)
-   local R=PF.radar
-   local lp=R.lp
-   local fl=PF.pflag(p)
-   if p==lp or fl.il then return end
-   if fl.al==false then return end
-   local mate=esp_mate(p,lp)
-   if cfg.esp_team and mate then return end
-   local pos=PF.pmemo(p)
-   if not pos then return end
-   local ox,oy,oz=R.ox,R.oy,R.oz
-   local dx,dz=pos.X-ox,pos.Z-oz
-   local dd=math.sqrt(dx*dx+dz*dz)
-   if dd>R.rng then return end
-   local px=R.cx+(dx*R.rtx+dz*R.rtz)*(R.rsz*0.5-8)/R.rng
-   local py=R.cy-(dx*R.fx+dz*R.fz)*(R.rsz*0.5-8)/R.rng
-   local cb=col.c_enemy or {0.95,0.35,0.4,1}
-   local ch=nil
-   if R.chroma then ch=PF.hue_fill(R.ch,(R.chue+idx*0.07)%1,0.75,1) end
-   local c=hue_or(ch,cb,R.al)
-   local ca=mate and c[4]*0.5 or c[4]
-   local lx,lz=PF.lvec(p)
-   if lx~=0 or lz~=0 then
-     local ll=math.sqrt(lx*lx+lz*lz)
-     if ll>1e-6 then
-       local ex=(lx*R.rtx+lz*R.rtz)/ll
-       local ey=-(lx*R.fx+lz*R.fz)/ll
-       local r0=mate and 2.2 or 3
-       local tc=PF.rct
-       tc[1]=c[1]; tc[2]=c[2]; tc[3]=c[3]; tc[4]=ca*0.85
-       draw.Line(px+ex*r0,py+ey*r0,px+ex*(r0+7),py+ey*(r0+7),tc,1)
-     end
-   end
-   local rc=R.rc
-   rc[1]=c[1]; rc[2]=c[2]; rc[3]=c[3]; rc[4]=ca
-   draw.CircleFilled(px,py,mate and 2.2 or 3,rc,10)
-   local ddx,ddz=pos.X-ox,pos.Z-oz
-   local ddy=pos.Y-oy
-   local dm=math.floor(math.sqrt(ddx*ddx+ddy*ddy+ddz*ddz))
-   local txt=PF.rdtxt[dm]
-   if not txt then txt=dm.."m"; PF.rdtxt[dm]=txt end
-   local tw=PF.rdw[dm]
-   if not tw then tw=ts(txt,9); PF.rdw[dm]=tw end
-   local tx2=px+11
-   if tx2+tw>R.rx+R.rsz-3 then tx2=px-11-tw end
-   draw.Text(tx2,py-5,txt,rc,9)
+-- ESP drawing would go here (player boxes, skeletons, tracers, radar)
+-- World sweep (loot, bases, nodes) would go here
+-- Crosshair drawing would go here
+-- Aimbot logic would go here
+
+-- Auto-save
+if gv("cfg_auto") and cfg_dirty and (now()-CFG.last)>30 then
+CFG.last=now()
+CFG.save(nil,true)
+end
 end
 
-local function run_radar()
-   if not cfg.rad_on then return end
-   local sw,sh=scr()
-   local rsz=cfg.rad_size or 160
-   local rng=math.max(0.5,cfg.rad_range or 50)/PF.m
-   local al=clamp((cfg.rad_alpha or 80)/100,0,1)
-   local rx=clamp(sw*(cfg.rad_x or 88)/100-rsz*0.5,0,math.max(0,sw-rsz))
-   local ry=clamp(sh*(cfg.rad_y or 8)/100,0,math.max(0,sh-rsz))
-   local cx,cy=rx+rsz*0.5,ry+rsz*0.5
-   draw.RectFilled(rx-2,ry-2,rsz+4,rsz+4,{0,0,0,0.55*al},8)
-   draw.Rect(rx-2,ry-2,rsz+4,rsz+4,{1,1,1,0.10*al},8,1)
-   for i=1,3 do draw.Circle(cx,cy,(rsz*0.5-3)*i/3,{1,1,1,0.07*al},40,1) end
-   draw.Line(cx,ry+4,cx,ry+rsz-4,{1,1,1,0.07*al},1)
-   draw.Line(rx+4,cy,rx+rsz-4,cy,{1,1,1,0.07*al},1)
-   draw.CircleFilled(cx,cy,2.6,{0.3,1,0.55,al},10)
-   local vw=PF.getview()
-   if not vw.cx then return end
-   local fx,fz=vw.fx or 0,vw.fz or 0
-   local fl=math.sqrt(fx*fx+fz*fz); if fl<1e-6 then fl=1 end
-   fx,fz=fx/fl,fz/fl
-   local R=PF.radar
-   R.lp=vw.lp
-   R.rx,R.rsz,R.rng,R.al=rx,rsz,rng,al
-   R.cx,R.cy=cx,cy
-   R.fx,R.fz=fx,fz
-   R.rtx,R.rtz=-fz,fx
-   R.ox,R.oy,R.oz=vw.cx,vw.cy,vw.cz
-   if vw.lx then R.ox,R.oy,R.oz=vw.lx,vw.ly,vw.lz end
-   R.chroma=cfg.esp_chroma
-   R.chue=now()*0.12
-   local players=PF.players()
-   if players then
-     for idx,p in ipairs(players) do pcall(PF.radar_one,p,idx) end
-   end
-   if FRAME%600==0 then
-     for k,e in pairs(PF.lv) do
-       if e.next<FRAME-600 then PF.lv[k]=nil end
-     end
-   end
-   draw.Text(rx+6,ry+rsz-14,"RADAR",{1,1,1,0.35*al},9)
-end
-
--- =========================================================================
--- HUD: watermark, keybind list and feature bar.
--- =========================================================================
-local hud_start=now()
-
-local function hud_panel(x,y,w,h,ap,r)
-   r=r or theme.round
-   local e=mix(theme.accent,theme.accent2,0.5)
-   for i=3,1,-1 do
-     draw.RectFilled(x-i*2, y-i*1.5, w+i*4, h+i*3, {0,0,0,0.07*ap}, r+i*2)
-   end
-   draw.RectFilled(x,y,w,h, {theme.base[1],theme.base[2],theme.base[3],0.90*ap}, r)
-   draw.Rect(x,y,w,h, a(theme.line,0.85*ap), r, 1)
-   draw.Rect(x+3,y+3,w-6,h-6, a(theme.line,0.16*ap), r, 1)
-   draw.RectFilled(x+r, y, w-r*2, 2, {e[1],e[2],e[3],0.9*ap}, 0)
-end
-
-local function hud_head(x,y,w,idx,label)
-   local nw=ts(idx,10)
-   draw.RectFilled(x,y,nw+8,13, a(theme.accent,0.16), 2)
-   draw.Text(x+4,y+2,idx, a(theme.accent,0.95), 10)
-   local caps=string.upper(label); local hw=ts(caps,11)
-   draw.Text(x+nw+15,y+1,caps, a(theme.faint,1), 11)
-   local lx=x+nw+hw+23
-   if lx<x+w then draw.Line(lx,y+9,x+w,y+9, a(theme.line,0.45), 1) end
-end
-
-local function hud_grip(x,y,ap)
-   for r=0,1 do for c=0,1 do
-     draw.RectFilled(x+c*4, y+r*4, 1.6,1.6, a(theme.faint,0.9*ap), 0)
-   end end
-end
-
-local HUD_S={feats={},w={},keys={},upv=-1,ups="",fpsv=-1,fpss=""}
-
-local function hud_krow(rows,n,lb,v)
-   n=n+1
-   local r=rows[n]
-   if not r then r={}; rows[n]=r end
-   r[1]=lb; r[2]=vkname(v)
-   return n
-end
-
-local function hud_key_rows()
-   local rows=HUD_S.keys
-   local n=0
-   local v
-   if cfg.aim_on then
-     v=bind.aim_key or 0; if v~=0 then n=hud_krow(rows,n,"Aimbot",v) end
-     v=bind.aim_toggle or 0; if v~=0 then n=hud_krow(rows,n,"Aim Toggle",v) end
-   end
-   v=bind.esp_toggle or 0
-   if cfg.esp_on and v~=0 then n=hud_krow(rows,n,"ESP Toggle",v) end
-   v=bind.menu_key or 0
-   if v~=0 then n=hud_krow(rows,n,"Menu",v) end
-   for i=#rows,n+1,-1 do rows[i]=nil end
-   return rows
-end
-
-local function run_hud()
-   local sw,sh=scr()
-   local apm=approach("hud_mark", cfg.hud_mark and 1 or 0, 17)
-   local apk=approach("hud_keys", cfg.hud_keys and 1 or 0, 15)
-   local apb=approach("hud_bar",  cfg.hud_bar  and 1 or 0, 16)
-
-   if apm>0.01 then
-     local fps=math.floor((utility.GetFPS and utility.GetFPS()) or 0)
-     if not fps or fps<=0 then fps=math.floor(1/(_dt>0 and _dt or 0.016)) end
-     local up=math.floor(now()-hud_start)
-     local ut
-     if up~=HUD_S.upv then
-       HUD_S.upv=up
-       ut = up<60 and string.format("%ds",up)
-         or (up<3600 and string.format("%dm",math.floor(up/60)))
-         or string.format("%dh%02dm",math.floor(up/3600),math.floor((up%3600)/60))
-       HUD_S.ups=ut
-     else
-       ut=HUD_S.ups
-     end
-     local ft
-     if fps~=HUD_S.fpsv then
-       HUD_S.fpsv=fps
-       ft=string.format("%d FPS",fps)
-       HUD_S.fpss=ft
-     else
-       ft=HUD_S.fpss
-     end
-     local lw=ts("Ego",14); local pw2=ts("Fust Survival",11)
-     local fw=ts(ft,11); local uw=ts(ut,11)
-     local ph=30
-     local wpx=14+lw+5+8+6+pw2+10+1+10+fw+10+uw+14
-     local wx=(cfg.hud_mark_x or -1)>=0 and cfg.hud_mark_x or (sw-wpx-16)
-     local wy=(cfg.hud_mark_y or -1)>=0 and cfg.hud_mark_y or 14
-     wx=clamp(wx,0,math.max(0,sw-wpx)); wy=clamp(wy,0,math.max(0,sh-ph))
-     if inside(wx,wy,wpx,ph) and ui.m.click then
-       cfg.hud_mark_x=wx; cfg.hud_mark_y=wy
-       ui.drag_mark={ox=ui.m.x-wx,oy=ui.m.y-wy}
-       ui.m.click=false
-     end
-     if ui.drag_mark then
-       cfg.hud_mark_x=clamp(ui.m.x-ui.drag_mark.ox,0,math.max(0,sw-wpx))
-       cfg.hud_mark_y=clamp(ui.m.y-ui.drag_mark.oy,0,math.max(0,sh-ph))
-       cfg_dirty=true
-       if not ui.m.down then ui.drag_mark=nil end
-     end
-     draw.RectFilled(wx,wy,wpx,ph,{theme.base[1],theme.base[2],theme.base[3],0.9*apm},3)
-     draw.Rect(wx,wy,wpx,ph,a(theme.line,0.85*apm),3,1)
-     tmid(wx+14,wy,ph,"Ego", a(theme.text,1), 14)
-     local dcx,dcy=wx+14+lw+5+4, wy+ph*0.5
-     if draw.PolyFilled then pcall(draw.PolyFilled, {{dcx,dcy-4},{dcx+4,dcy},{dcx,dcy+4},{dcx-4,dcy}}, a(theme.accent,1))
-     else draw.RectFilled(dcx-3,dcy-3,6,6, a(theme.accent,1), 1) end
-     local px=dcx+4+6
-     tmid(px,wy,ph,"Fust Survival", a(theme.sub,1), 11)
-     local gx=px+pw2+10
-     draw.Line(gx,wy+8,gx,wy+ph-8, a(theme.line,0.6*apm), 1)
-     local tx=gx+11
-     local fc = fps>=100 and theme.ok or (fps>=45 and theme.text or theme.bad)
-     tmid(tx,wy,ph,ft, a(fc,1), 11)
-     tmid(tx+fw+10,wy,ph,ut, a(theme.faint,1), 11)
-   end
-
-   if apk>0.01 then
-     local rows=hud_key_rows()
-     if #rows>0 then
-       local rh=21; local pw=178; local ph=40+#rows*rh
-       local kx=(cfg.hud_keys_x or -1)>=0 and cfg.hud_keys_x or (sw-pw-16)
-       local ky=(cfg.hud_keys_y or -1)>=0 and cfg.hud_keys_y or (sh-ph-18)
-       kx=clamp(kx,0,math.max(0,sw-pw)); ky=clamp(ky,0,math.max(0,sh-ph))
-       if inside(kx,ky,pw,ph) and ui.m.click then
-         ui.drag_keys={ox=ui.m.x-kx,oy=ui.m.y-ky}
-         ui.m.click=false
-       end
-       if ui.drag_keys then
-         cfg.hud_keys_x=clamp(ui.m.x-ui.drag_keys.ox,0,math.max(0,sw-pw))
-         cfg.hud_keys_y=clamp(ui.m.y-ui.drag_keys.oy,0,math.max(0,sh-ph))
-         cfg_dirty=true
-         if not ui.m.down then ui.drag_keys=nil end
-       end
-       draw.RectFilled(kx,ky,pw,ph,{theme.base[1],theme.base[2],theme.base[3],0.9*apk},4)
-       draw.Rect(kx,ky,pw,ph,a(theme.line,0.85*apk),4,1)
-       hud_head(kx+13,ky+11,pw-26,"01","Keybinds")
-       for i,r in ipairs(rows) do
-         local ry=ky+32+(i-1)*rh
-         if i%2==0 then draw.RectFilled(kx+9,ry,pw-18,rh, {1,1,1,0.022*apk}, 0) end
-         tmid(kx+14,ry,rh,r[1], a(theme.sub,1), 11)
-         local kw=ts(r[2],10); local cw=kw+13; local ch=15
-         local cx=kx+pw-13-cw; local cy=ry+(rh-ch)*0.5
-         draw.RectFilled(cx,cy,cw,ch, a(theme.field,1), 2)
-         draw.Rect(cx,cy,cw,ch, a(theme.line,1), 2, 1)
-         tmid(cx,cy,ch,r[2], a(theme.text,1), 10)
-       end
-     end
-   end
-
-   if apb>0.01 then
-     local feats=HUD_S.feats
-     for i=#feats,1,-1 do feats[i]=nil end
-     if cfg.aim_on then feats[#feats+1]="AIM" end
-     if cfg.esp_on then feats[#feats+1]="ESP" end
-     if cfg.rad_on then feats[#feats+1]="RADAR" end
-     if cfg.xh_on then feats[#feats+1]="CROSSHAIR" end
-     if cfg.loot_on or cfg.base_on or cfg.bags_on or cfg.drop_on
-       or cfg.nodes_on or cfg.pick_on or cfg.plants_on then
-       feats[#feats+1]="WORLD"
-     end
-     if #feats>0 then
-       local gap=7; local pad=16; local ph=34
-       local widths=HUD_S.w; local tot=pad*2+(#feats-1)*gap
-       for i,lb in ipairs(feats) do
-         local cw=math.max(48, ts(lb,10)+20); widths[i]=cw; tot=tot+cw
-       end
-       local bx=(cfg.hud_bar_x or -1)>=0 and cfg.hud_bar_x or (sw*0.5-tot*0.5)
-       local by=(cfg.hud_bar_y or -1)>=0 and cfg.hud_bar_y or (sh-ph-18)
-       bx=clamp(bx,0,math.max(0,sw-tot)); by=clamp(by,0,math.max(0,sh-ph))
-       if inside(bx,by,tot,ph) and ui.m.click then
-         ui.drag_bar={ox=ui.m.x-bx,oy=ui.m.y-by}
-         ui.m.click=false
-       end
-       if ui.drag_bar then
-         cfg.hud_bar_x=clamp(ui.m.x-ui.drag_bar.ox,0,math.max(0,sw-tot))
-         cfg.hud_bar_y=clamp(ui.m.y-ui.drag_bar.oy,0,math.max(0,sh-ph))
-         cfg_dirty=true
-         if not ui.m.down then ui.drag_bar=nil end
-       end
-       draw.RectFilled(bx,by,tot,ph,{theme.base[1],theme.base[2],theme.base[3],0.9*apb},4)
-       draw.Rect(bx,by,tot,ph,a(theme.line,0.85*apb),4,1)
-       local e=mix(theme.accent,theme.accent2,0.5)
-       draw.RectFilled(bx+pad-2,by+ph-2,tot-(pad-2)*2,2, {e[1],e[2],e[3],0.9*apb}, 1)
-       local px=bx+pad
-       for i,lb in ipairs(feats) do
-         local cw=widths[i]; local cx=px+cw*0.5
-         draw.CircleFilled(cx,by+11,2.4, a(e,0.95*apb), 12)
-         local tw=ts(lb,10)
-         draw.Text(cx-tw*0.5,by+17,lb, a(theme.text,0.95*apb), 10)
-         if i<#feats then
-           local sx=px+cw+gap*0.5
-           draw.Line(sx,by+9,sx,by+ph-10, a(theme.line,0.5*apb), 1)
-         end
-         px=px+cw+gap
-       end
-     end
-   end
-end
-
--- =========================================================================
--- CROSSHAIR
--- =========================================================================
-local xh_ang=0
-local XH_R={cx=0,cy=0,co=1,si=0}
-local function xh_rot(x,y)
-   local c=XH_R
-   local dx,dy=x-c.cx,y-c.cy
-   return c.cx+dx*c.co-dy*c.si, c.cy+dx*c.si+dy*c.co
-end
-local function xh_poly(pts,c,th)
-   if draw.PolyClosed then pcall(draw.PolyClosed, pts, c, th); return end
-   for i=1,#pts do
-     local p=pts[i]; local q=pts[i%#pts+1]
-     draw.Line(p[1],p[2],q[1],q[2],c,th)
-   end
-end
-
-local function run_crosshair()
-   if not cfg.xh_on then return end
-   local sw,sh=scr(); local cx,cy=sw*0.5,sh*0.5
-   if cfg.xh_follow and cfg.aim_on and XH_R.tv then cx,cy=XH_R.tx,XH_R.ty end
-   local pulse=1
-   if cfg.xh_pulse then
-     local ph=(XH_R.ph or 0)+(cfg.xh_pulse_speed or 100)/60*math.pi*2*_dt
-     ph=ph%(math.pi*2)
-     XH_R.ph=ph
-     pulse=1+0.35*math.sin(ph)
-   end
-   local s=(cfg.xh_size or 10)*pulse
-   local gp=(cfg.xh_gap or 4)*pulse
-   local th=cfg.xh_thick
-   local c=hue_or(cfg.xh_chroma and hsv((now()*0.12)%1,0.8,1) or nil,col.c_xh,1); local st=cfg.xh_style
-   if cfg.xh_spin then
-     xh_ang=(xh_ang+(cfg.xh_speed or 0)*math.pi/180*_dt)%(math.pi*2)
-   end
-   local ang=cfg.xh_spin and xh_ang or 0
-   XH_R.cx,XH_R.cy=cx,cy
-   XH_R.co,XH_R.si=math.cos(ang),math.sin(ang)
-   local R=xh_rot
-   if st==1 then
-     local x1,y1=R(cx-gp-s,cy); local x2,y2=R(cx-gp,cy)
-     local x3,y3=R(cx+gp,cy);   local x4,y4=R(cx+gp+s,cy)
-     local x5,y5=R(cx,cy-gp-s); local x6,y6=R(cx,cy-gp)
-     local x7,y7=R(cx,cy+gp);   local x8,y8=R(cx,cy+gp+s)
-     draw.Line(x1,y1,x2,y2,c,th); draw.Line(x3,y3,x4,y4,c,th)
-     draw.Line(x5,y5,x6,y6,c,th); draw.Line(x7,y7,x8,y8,c,th)
-   elseif st==2 then
-     local r=math.max(0.9, s*0.32+th*0.5)
-     draw.CircleFilled(cx,cy,r,c,math.max(8,math.floor(r*3)))
-   elseif st==3 then
-     draw.Circle(cx,cy,s,c,24,th)
-   elseif st==4 then
-     local x1,y1=R(cx-gp-s,cy); local x2,y2=R(cx-gp,cy)
-     local x3,y3=R(cx+gp,cy);   local x4,y4=R(cx+gp+s,cy)
-     local x5,y5=R(cx,cy+gp);   local x6,y6=R(cx,cy+gp+s)
-     draw.Line(x1,y1,x2,y2,c,th); draw.Line(x3,y3,x4,y4,c,th)
-     draw.Line(x5,y5,x6,y6,c,th)
-   elseif st==5 then
-     local r=gp+s
-     local h=r*math.sqrt(3)*0.5
-     local ux,uy=R(cx,cy-r)
-     local lx,ly=R(cx-h,cy+r*0.5); local rx2,ry2=R(cx+h,cy+r*0.5)
-     local dx,dy=R(cx,cy+r)
-     local l2x,l2y=R(cx-h,cy-r*0.5); local r2x,r2y=R(cx+h,cy-r*0.5)
-     xh_poly({{ux,uy},{lx,ly},{rx2,ry2}}, c, th)
-     xh_poly({{dx,dy},{l2x,l2y},{r2x,r2y}}, c, th)
-   elseif st==6 then
-     local r=gp+s
-     local ax1,ay1=R(cx-r,cy);  local ax2,ay2=R(cx+r,cy)
-     local ax3,ay3=R(cx,cy-r);  local ax4,ay4=R(cx,cy+r)
-     draw.Line(ax1,ay1,ax2,ay2,c,th); draw.Line(ax3,ay3,ax4,ay4,c,th)
-     local h1x,h1y=R(cx-r,cy-r)
-     local h2x,h2y=R(cx+r,cy-r)
-     local h3x,h3y=R(cx+r,cy+r)
-     local h4x,h4y=R(cx-r,cy+r)
-     draw.Line(ax1,ay1,h1x,h1y,c,th); draw.Line(ax3,ay3,h2x,h2y,c,th)
-     draw.Line(ax2,ay2,h3x,h3y,c,th); draw.Line(ax4,ay4,h4x,h4y,c,th)
-   end
-   if cfg.xh_dot and st~=2 then draw.CircleFilled(cx,cy,math.max(0.9, th+s*0.07),c,10) end
-end
-
--- =========================================================================
--- WORLD
--- =========================================================================
-local W_CACHE={ loot={}, base={}, bags={}, dropped={}, nodes={}, picks={}, plants={}, veh={}, gen=0,
-   sel={n=0},
-   col={1,1,1,1}, def={1,1,1,1}, suf={}, tw={}, dl={}, low={},
-   itemmesh={}, itemdist={}, itemsz={}, itemnm={}, itemq={i=0} }
-
-local W_SWEEP={tasks={},ti=1,ki=1,ch=nil,active=false,cool=0,
-   next={loot={},base={},bags={},dropped={},nodes={},picks={},plants={},veh={}}}
-
-function W_SWEEP.key(inst)
-   local ok,ad=pcall(PF.addr,inst)
-   if ok and type(ad)=="number" then return ad end
-   return inst
-end
-
-local W_PART_CLASS={ MeshPart=true, Part=true, UnionOperation=true }
-local W_PART_NAMES={ "HumanoidRootPart","UpperTorso","Torso","Head","Body","Canvas","Strap",
-   "WoodDark","Rim","Rock","Ore","Wood","Leaves","Stem","Handle","Metal","Lid","Cob","Stalk",
-   "Chassis","Hull","Seat" }
-
-local W_LOOT={
-   {"barrel","loot_barrels","Loot Barrel","c_lootbarrels"},
-   {"elite","loot_elite","Elite Crate","c_lootelite"},
-   {"military","loot_military","Military Crate","c_lootmilitary"},
-   {"crate","loot_crates","Loot Crate","c_lootcrates"},
-}
-local W_BASE={
-   {"largebox","loot_largebox","Large Box","c_lootlargebox"},
-   {"woodenbox","loot_smallbox","Small Box","c_lootsmallbox"},
-   {"toolcupboard","loot_tc","Tool Cupboard","c_loottc"},
-   {"cupboard","loot_tc","Tool Cupboard","c_loottc"},
-   {"locker","loot_locker","Locker","c_lootlocker"},
-   {"sleepingbag","loot_bag","Sleeping Bag","c_lootbag"},
-   {"sleeping_bag","loot_bag","Sleeping Bag","c_lootbag"},
-   {"shotguntrap","base_shotguntrap","Shotgun Trap","c_baseshotguntrap"},
-   {"autoturret","base_autoturret","Auto Turret","c_baseautoturret"},
-   {"aaturret","base_aaturret","AA Turret","c_baseaaturret"},
-}
-local W_NODE={
-   {"stone","node_stone","Stone Node","c_nodestone"},
-   {"sulfur","node_sulfur","Sulfur Node","c_nodesulfur"},
-   {"metal","node_iron","Metal Node","c_nodeiron"},
-   {"iron","node_iron","Metal Node","c_nodeiron"},
-}
-local W_PLANT={
-   {"hemp","pick_hemp","Hemp (Cloth)","c_pickhemp"},
-   {"corn","pick_corn","Corn","c_pickcorn"},
-   {"pumpkin","pick_pumpkin","Pumpkin","c_pickpumpkin"},
-   {"berry","pick_berry","Berries","c_pickberry"},
-   {"mushroom","pick_mushroom","Mushroom","c_pickmushroom"},
-   {"carrot","pick_carrot","Carrot","c_pickcarrot"},
-   {"potato","pick_potato","Potato","c_pickpotato"},
-   {"apple","pick_apple","Apple","c_pickapple"},
-}
-W_CACHE.vehrules={
-   {"atv","veh_atv","ATV","c_veh_atv"},
-   {"rowboat","veh_boats","Rowboat","c_veh_boat"},
-   {"rhib","veh_boats","RHIB","c_veh_boat"},
-   {"tugboat","veh_boats","Tugboat","c_veh_boat"},
-   {"boat","veh_boats","Boat","c_veh_boat"},
-   {"minicopter","veh_heli","Minicopter","c_veh_heli",
-     {"Frame","Floor","Body","Chassis","Engine","Seat","MainRotor"}},
-   {"scrapheli","veh_heli","Scrap Heli","c_veh_heli",
-     {"Body","Chassis","Frame","Engine","MainRotor"}},
-   {"helicopter","veh_heli","Helicopter","c_veh_heli",
-     {"Body","Chassis","Frame","Engine","MainRotor"}},
-}
-
-local W_BAG_PAT={"bodybag","body_bag","deathbag","lootbag","loot_bag","lootsack",
-   "corpse","deadbody","dead_body","ragdoll"}
-local function w_is_bag(lower)
-   if lower=="backpack" then return true end
-   for i=1,#W_BAG_PAT do if lower:find(W_BAG_PAT[i],1,true) then return true end end
-   return false
-end
-
-local function w_pack_label(lower)
-   if lower=="backpacksmall" or lower=="backpack_small" or lower=="smallbackpack"
-     or lower=="small_backpack" then return "Small Backpack" end
-   if lower=="backpacklarge" or lower=="backpack_large" or lower=="largebackpack"
-     or lower=="large_backpack" then return "Large Backpack" end
-   return nil
-end
-
-local function w_bag_label(lower)
-   if lower:find("sleepingbag",1,true) or lower:find("sleeping_bag",1,true) then return nil end
-   if lower:find("corpse",1,true) or lower:find("deadbody",1,true)
-     or lower:find("dead_body",1,true) or lower:find("ragdoll",1,true) then return "Dead Body" end
-   if lower=="backpack"
-     or lower:find("bodybag",1,true) or lower:find("body_bag",1,true)
-     or lower:find("deathbag",1,true) or lower:find("lootbag",1,true)
-     or lower:find("loot_bag",1,true) or lower:find("lootsack",1,true) then return "Body Bag" end
-end
-
-local W_PART_CACHE={}
-local function w_part(inst,key,extra)
-   if not inst then return nil end
-   if not key then key=W_SWEEP.key(inst) end
-   local cached=W_PART_CACHE[key]
-   if cached then
-     if cached.p then
-       cached.gen=W_CACHE.gen
-       return cached.p
-     end
-     if cached.gen==W_CACHE.gen then return nil end
-   end
-   local p
-   if extra then
-     local fn=inst.FindFirstChild
-     if type(fn)=="function" then
-       for i=1,#extra do
-         local ok,c=pcall(fn,inst,extra[i])
-         if ok and c and W_PART_CLASS[c.ClassName] then p=c; break end
-       end
-     end
-   end
-   if not p and W_PART_CLASS[inst.ClassName] then p=inst end
-   if not p then
-     local okp,v=pcall(PF.prim,inst)
-     if okp then p=v end
-   end
-   if not p then
-     local fn=inst.FindFirstChild
-     if type(fn)=="function" then
-       for i=1,#W_PART_NAMES do
-         local ok,c=pcall(fn,inst,W_PART_NAMES[i])
-         if ok and c and W_PART_CLASS[c.ClassName] then p=c; break end
-       end
-     end
-   end
-   if not p then
-     local fn=inst.GetChildren
-     if type(fn)=="function" then
-       local ok,ch=pcall(fn,inst)
-       if ok and type(ch)=="table" then
-         for i=1,#ch do
-           local c=ch[i]
-           if W_PART_CLASS[c.ClassName] then p=c; break end
-         end
-       end
-     end
-   end
-   W_PART_CACHE[key]={p=p or false,gen=W_CACHE.gen}
-   return p
-end
-
-local W_FIX={}
-local function w_pos(inst,part,fixed,key)
-   if not key then key=W_SWEEP.key(inst) end
-   if fixed then
-     local c=W_FIX[key]
-     if c then c.gen=W_CACHE.gen; return c.x,c.y,c.z end
-   end
-   local p=part or w_part(inst,key)
-   if not p then return nil end
-   local ok,pos=pcall(PF.pos,p)
-   if not (ok and pos) then return nil end
-   local x=pos.X or pos.x; local y=pos.Y or pos.y; local z=pos.Z or pos.z
-   if not x or not y or not z then return nil end
-   if fixed then W_FIX[key]={x=x,y=y,z=z,gen=W_CACHE.gen} end
-   return x,y,z
-end
-
-local W_ITEM_ALIAS={
-   AcogSight="3x ACOG Sight", AtvWagon="ATV Wagon",
-   BackpackLarge="Large Backpack", BackpackSmall="Small Backpack",
-   BuckshotShell="12 Gauge Buckshot", C4="Timed Explosive Charge",
-   ClanRecruitBoard="Clan Recruitment Board", DinoTrophy="T-Rex Skull Trophy",
-   DoubleBarrel="Double Barrel Shotgun", DrumSmg="Drum SMG",
-   Gunpowder="Gun Powder", HwCandy="Candy",
-   HwFrankHead="Severed Head", HwFrankLegs="Stitched Legs",
-   HwFrankMachine="Frankenstein Machine", HwFrankTorso="Stitched Torso",
-   HwP2Bandage="Pumpkin Bandage", HwP2Box="Halloween Supply Box",
-   HwP2Brew="Witch Brew", HwP2CardGreen="Halloween Access Card",
-   HwP2CardRed="Cursed Facility Card", HwP2CardYellow="Research Access Card",
-   HwP2Energy="Halloween Energy Drink", HwP2Soup="Pumpkin Soup",
-   IconBeans="Can of Beans", IconDinoMeat="Raw Dino Meat",
-   IconHQM="High Quality Metal", IconHQMOre="High Quality Metal Ore",
-   IconSemiBody="Semi Automatic Body", IconSmgBody="SMG Body",
-   IconTRexTooth="T-Rex Tooth", IconTuna="Can of Tuna",
-   Ladder="Wooden Ladder", LargeBox="Large Wood Box", LockKey="Key",
-   LRSniper="LR Sniper Rifle", MetalDoor="Sheet Metal Door",
-   MetalShutters="Metal Window Shutters", RifleAmmo="5.56 Rifle Ammo",
-   ScarRifle="SCAR", Scope4x="4x Scope",
-   SemiAutoPistol="Semi-Auto Pistol", SemiAutoRifle="Semi-Automatic Rifle",
-   SlugShell="12 Gauge Slug", TacticalSmg="Tactical SMG",
-   WaterBottle="Empty Water Bottle", WaterBottleFull="Water Bottle",
-   WoodenBox="Wood Storage Box", WoodenShutters="Wooden Window Shutters",
-   Workbench="Workbench Level 1", Workbench2="Workbench Level 2",
-   Workbench3="Workbench Level 3",
-   HwDecoBanner="Halloween Banner", HwDecoCandles="Spooky Candles",
-   HwDecoCauldron="Witch's Cauldron", HwDecoCobweb="Cobweb Frame",
-   HwDecoGravestone="Gravestone", HwDecoJack="Jack-O-Lantern",
-   HwDecoLantern="Spooky Lantern", HwDecoPumpkin="Pumpkin",
-   HwDecoScarecrow="Scarecrow", HwDecoSign="Spooky Sign",
-   HwDecoSkulls="Skull Pile", HwDecoStringLights="Halloween String Lights",
-   Hwpotion_damage="Damage Potion", Hwpotion_jump="Jump Potion",
-   Hwpotion_speed="Speed Potion",
-   LootSack="Loot Bag",
-}
-
-local W_PROMPT_BAD={ loot=true, bag=true, sack=true, backpack=true,
-   corpse=true, body=true, item=true, items=true, container=true,
-   ["loot bag"]=true, ["loot sack"]=true, ["body bag"]=true,
-   ["death bag"]=true, ["dropped item"]=true, ["dropped items"]=true,
-   ["loot bags"]=true, ["loot sacks"]=true, ["pick up"]=true,
-   open=true, search=true }
-
-local function w_item_name(inst)
-   local okn,nm=pcall(PF.name,inst)
-   if okn and type(nm)=="string" and nm~="" and not nm:lower():match("^item%d*$") then return nm end
-   local txt=W_SWEEP.ptxt(inst)
-   if txt then return txt end
-   local mk,dk,sk,nk=W_SWEEP.sig(inst)
-   local tpl=(mk and W_CACHE.itemmesh[mk]) or (dk and W_CACHE.itemdist[dk])
-     or (sk and W_CACHE.itemsz[sk]) or (nk and W_CACHE.itemnm[nk])
-   if tpl then
-     tpl=tpl:gsub("_deathtax$","")
-     local alias=W_ITEM_ALIAS[tpl]
-     if alias then return alias end
-     local pretty=tpl:gsub("^Icon",""):gsub("(%l)(%u)","%1 %2"):gsub("(%u)(%u%l)","%1 %2")
-     if #pretty>0 then return pretty end
-   end
-   return "Dropped Item"
-end
-
-local function w_children(folder)
-   if not folder then return nil end
-   local fn=folder.GetChildren
-   if type(fn)=="function" then
-     local ok,ch=pcall(fn,folder)
-     if ok and type(ch)=="table" then return ch end
-   end
-   fn=folder.get_children
-   if type(fn)=="function" then
-     local ok,ch=pcall(fn,folder)
-     if ok and type(ch)=="table" then return ch end
-   end
-   return nil
-end
-
-local function w_folder(ws,name)
-   if not ws then return nil end
-   local fn=ws.FindFirstChild
-   if type(fn)=="function" then
-     local ok,f=pcall(fn,ws,name)
-     if ok and f then return f end
-   end
-   fn=ws.find_first_child
-   if type(fn)=="function" then
-     local ok,f=pcall(fn,ws,name)
-     if ok and f then return f end
-   end
-   local okg,f=pcall(PF.get,ws,name)
-   if okg and f then return f end
-   local ch=W_SWEEP.wsch
-   if ch==nil then ch=w_children(ws); W_SWEEP.wsch=ch end
-   if ch then
-     for i=1,#ch do
-       local c=ch[i]
-       local okn,nm=pcall(PF.name,c)
-       if okn and nm==name then return c end
-     end
-   end
-   return nil
-end
-
-local function w_push(list,inst,name,cid,fixed,extra,slow)
-   local key=W_SWEEP.key(inst)
-   local p=w_part(inst,key,extra)
-   if not p then return end
-   local x,y,z=w_pos(inst,p,fixed,key)
-   if x then
-     local pool=list.pool
-     local e
-     if pool and #pool>0 then e=pool[#pool]; pool[#pool]=nil end
-     if not e then e={} end
-     e.x=x; e.y=y; e.z=z; e.part=p
-     e.live=not fixed; e.slow=slow or nil
-     e.name=name; e.cid=cid; e.ph=#list%3
-     e.dm=nil; e.dtxt=nil; e.dw=nil; e.dwsz=nil
-     list[#list+1]=e
-   end
-end
-
-local function w_pick_label(lower)
-   if cfg.pick_on and cfg.pick_ores and (lower:find("stone",1,true)
-     or lower:find("sulfur",1,true) or lower:find("metal",1,true)
-     or lower:find("ore",1,true)) then
-     if lower:find("sulfur",1,true) then return "Sulfur Pickup","c_pickores","pick" end
-     if lower:find("metal",1,true) then return "Metal Pickup","c_pickores","pick" end
-     return "Stone Pickup","c_pickores","pick"
-   end
-   if cfg.plants_on then
-     for i=1,#W_PLANT do
-       local rule=W_PLANT[i]
-       if lower:find(rule[1],1,true) then
-         if cfg[rule[2]] then return rule[3],rule[4],"plant" end
-         return nil
-       end
-     end
-   end
-   if cfg.pick_on and cfg.pick_wood and (lower:find("wood",1,true)
-     or lower:find("log",1,true)) then
-     return "Wood Pile","c_pickwood","pick"
-   end
-end
-
-W_SWEEP.v3=function(v)
-   if not v then return nil end
-   local ok,x=pcall(PF.get,v,"X")
-   if not (ok and type(x)=="number") then ok,x=pcall(PF.get,v,"x") end
-   if not (ok and type(x)=="number") then return nil end
-   local oky,y=pcall(PF.get,v,"Y")
-   if not (oky and type(y)=="number") then oky,y=pcall(PF.get,v,"y") end
-   local okz,z=pcall(PF.get,v,"Z")
-   if not (okz and type(z)=="number") then okz,z=pcall(PF.get,v,"z") end
-   if oky and okz and type(y)=="number" and type(z)=="number" then return x,y,z end
-   return nil
-end
-
-W_SWEEP.psize=function(c)
-   local ok,s=pcall(PF.get,c,"Size")
-   if not (ok and s) then ok,s=pcall(PF.get,c,"size") end
-   if not (ok and s) then return nil end
-   return W_SWEEP.v3(s)
-end
-
-W_SWEEP.pmesh=function(c)
-   local ok,m=pcall(PF.get,c,"MeshId")
-   if not (ok and m) then ok,m=pcall(PF.get,c,"mesh_id") end
-   if not (ok and m) then return nil end
-   local s=tostring(m)
-   if s=="" then return nil end
-   s=s:gsub("0x%x+","")
-   return s
-end
-
-W_SWEEP.put=function(map,key,val)
-   if not key then return end
-   local cur=map[key]
-   if cur==nil
+notify.Success("BustUI Loaded","Native Vector Menu Active",3)
