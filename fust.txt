@@ -1,626 +1,1447 @@
---[[
-    FUST ULTIMATE HUB — Project Vector
-    Based on dust_stone_esp_inv.lua (Hamster Hub)
-    Tabs: Aimbot | Visuals | World | Inventory | Settings
-]]
+-- ============================================================
+-- Fust Admin ESP — ported to the Vector Lua API
+-- ============================================================
 
-local TAB_AIM   = "Aimbot"
-local TAB_VIS   = "Visuals"
-local TAB_WORLD = "World"
-local TAB_INV   = "Inventory"
-local TAB_CFG   = "Settings"
+local StaffState = require(game:GetService("ReplicatedStorage"):WaitForChild("Fust"):WaitForChild("StaffState"))
+local Players    = game:GetService("Players")
+local Replicated = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local UIS        = game:GetService("UserInputService")
 
--- ============================ MENU LAYOUT ============================
-menu.AddTab(TAB_AIM,   "A")
-menu.AddTab(TAB_VIS,   "V")
-menu.AddTab(TAB_WORLD, "W")
-menu.AddTab(TAB_INV,   "I")
-menu.AddTab(TAB_CFG,   "S")
+local LocalPlayer  = Players.LocalPlayer
+local PlayerGui    = LocalPlayer:WaitForChild("PlayerGui")
+local Fust         = Replicated:WaitForChild("Fust")
+local Remotes      = Fust:WaitForChild("Remotes")
+local StaffKeys    = require(Fust:WaitForChild("AdminUI"):WaitForChild("StaffKeys"))
 
--- ---------------- AIMBOT & PREDICTION ----------------
-menu.AddGroup(TAB_AIM, "Aimbot & Prediction")
-menu.AddCheckbox(TAB_AIM, "Aimbot & Prediction", "aim_enabled",     "Enable Aimbot", false, { key = 0x46, show_mode = false })
-menu.AddCheckbox(TAB_AIM, "Aimbot & Prediction", "aim_silent",      "Silent Aim (hook)", false, { parent = "aim_enabled" })
-menu.AddCheckbox(TAB_AIM, "Aimbot & Prediction", "aim_draw_fov",    "Draw FOV Circle", true,  { parent = "aim_enabled", colorpicker = {1,1,1,0.35} })
-menu.AddCheckbox(TAB_AIM, "Aimbot & Prediction", "aim_vis_check",   "Visible Check (LOS)", false, { parent = "aim_enabled" })
-menu.AddCheckbox(TAB_AIM, "Aimbot & Prediction", "aim_team_check",  "Skip Teammates",    false, { parent = "aim_enabled" })
-menu.AddCheckbox(TAB_AIM, "Aimbot & Prediction", "aim_prediction",  "Lead Prediction",   true,  { parent = "aim_enabled" })
-menu.AddCheckbox(TAB_AIM, "Aimbot & Prediction", "aim_highlight",   "Pulsing Target Ring", true, { parent = "aim_enabled", colorpicker = {1,0.3,0.3,1} })
-menu.AddCombo(TAB_AIM,   "Aimbot & Prediction", "aim_bone",        "Target Bone", {"Head","UpperTorso","HumanoidRootPart"}, 0, { parent = "aim_enabled" })
-menu.AddSliderInt(TAB_AIM, "Aimbot & Prediction", "aim_fov",       "FOV Radius (px)", 20, 600, 140, "%d", { parent = "aim_enabled" })
-menu.AddSliderInt(TAB_AIM, "Aimbot & Prediction", "aim_smooth",    "Smoothing (1=instant)", 1, 20, 4, "%d", { parent = "aim_enabled" })
-menu.AddSliderFloat(TAB_AIM, "Aimbot & Prediction", "aim_speed",   "Projectile Speed (st/s)", 50, 1200, 350, "%.0f", { parent = "aim_enabled" })
+-- ---------- constants ----------
+local CFG = {
+    ENTRY_KEEP   = 4,
+    STALE        = 3,
+    STALE_CLEAR  = 10,
+    TEXT_HZ      = 5,
+    MAX_HL       = 60,
+    HL_NEAR      = 6,
+    HL_RANGE     = 400,
+    HL_KEEP_BONUS= 40,
+    DETAIL_NEAR  = 150,
+    FAR          = 450,
+    FAR_HYST     = 25,
+    FAR_FADE     = 0.35,
+    PICK_PX      = 110,
+    PICK_KEEP    = 1.4,
+    PREDICT      = 0.4,
+    CORRECT      = 12,
+    SNAP         = 60,
+    BODY_LO      = Vector3.New(-2.5, -3.1, -1.5),
+    BODY_HI      = Vector3.New(2.5, 2.6, 1.5),
+    BODY_CAP     = 8,
+    BOX_PAD      = 2,
+    BOX_MIN      = 6,
+    EDGE         = 40,
+    EDGE_TOP     = 110,
+    EDGE_BOTTOM  = 150,
+    MAX_ARROWS   = 12,
+    FAST_AMBER   = 28,
+    FAST_RED     = 40,
+}
 
--- ---------------- GUN MODS ----------------
-menu.AddGroup(TAB_AIM, "Gun Mods")
-menu.AddCheckbox(TAB_AIM, "Gun Mods", "gun_recoil",     "Recoil Control (RCS)", false)
-menu.AddSliderInt(TAB_AIM, "Gun Mods", "gun_recoil_pct", "Recoil Reduction %", 10, 100, 80, "%d%%", { parent = "gun_recoil" })
-menu.AddCheckbox(TAB_AIM, "Gun Mods", "gun_rapid",      "Full Auto / Rapid Fire", false)
-menu.AddSliderInt(TAB_AIM, "Gun Mods", "gun_rapid_ms",  "Rapid Delay (ms)", 50, 400, 120, "%d", { parent = "gun_rapid" })
-menu.AddCheckbox(TAB_AIM, "Gun Mods", "gun_trigger",    "Triggerbot", false)
-menu.AddSliderInt(TAB_AIM, "Gun Mods", "gun_trigger_ms", "Reaction Delay (ms)", 0, 200, 25, "%d", { parent = "gun_trigger" })
+local COL = {
+    text    = Color3.fromHex("ECE6DA"),
+    muted   = Color3.fromHex("A3A79F"),
+    dim     = Color3.fromHex("6E736C"),
+    amber   = Color3.fromHex("D9A441"),
+    good    = Color3.fromHex("6FA35A"),
+    bad     = Color3.fromHex("E0745A"),
+    badFill = Color3.fromHex("B8452F"),
+    slot    = Color3.fromHex("0F1110"),
+    hover   = Color3.fromHex("2C312E"),
+    mate    = Color3.fromHex("4FB8A8"),
+    staff   = Color3.fromHex("A07BE0"),
+    watch   = Color3.fromHex("E8913A"),
+}
 
--- ---------------- CAMERA & ZOOM ----------------
-menu.AddGroup(TAB_AIM, "Camera & Zoom")
-menu.AddCheckbox(TAB_AIM, "Camera & Zoom", "zoom_enabled", "Zoom / Scope", false, { key = 0, show_mode = false })
-menu.AddSliderInt(TAB_AIM, "Camera & Zoom", "zoom_fov",    "Zoom FOV", 10, 60, 30, "%d", { parent = "zoom_enabled" })
-menu.AddCheckbox(TAB_AIM, "Camera & Zoom", "cam_track",    "Lock-On Camera (hold G)", false)
-
--- ---------------- PLAYER ESP ----------------
-menu.AddGroup(TAB_VIS, "Player ESP")
-menu.AddCheckbox(TAB_VIS, "Player ESP", "player_esp",    "Enable Player ESP", false)
-menu.AddCheckbox(TAB_VIS, "Player ESP", "player_box",    "Bounding Box", false, { parent = "player_esp", colorpicker = {1,1,1,0.85} })
-menu.AddCheckbox(TAB_VIS, "Player ESP", "player_chams",  "Filled Chams", false, { parent = "player_esp", colorpicker = {0.95,0.25,0.25,0.25} })
-menu.AddCheckbox(TAB_VIS, "Player ESP", "player_health", "Health Bar + HP", false, { parent = "player_esp" })
-menu.AddCheckbox(TAB_VIS, "Player ESP", "player_name",   "Name Tag", false, { parent = "player_esp" })
-menu.AddCheckbox(TAB_VIS, "Player ESP", "player_dist",   "Distance", false, { parent = "player_esp" })
-menu.AddCheckbox(TAB_VIS, "Player ESP", "player_tracer", "Snaplines", false, { parent = "player_esp", colorpicker = {1,1,1,0.35} })
-menu.AddCheckbox(TAB_VIS, "Player ESP", "offscreen_ply", "Off-Screen Radar", false, { parent = "player_esp" })
-menu.AddSliderInt(TAB_VIS, "Player ESP", "player_maxdist", "Max Range (m)", 20, 1500, 500, "%d", { parent = "player_esp" })
-menu.AddSliderInt(TAB_VIS, "Player ESP", "player_font",  "Text Size", 10, 20, 13, "%d", { parent = "player_esp" })
-
--- ---------------- NPC ESP ----------------
-menu.AddGroup(TAB_VIS, "NPCs ESP")
-menu.AddCheckbox(TAB_VIS, "NPCs ESP", "npcs_esp",    "Enable NPCs ESP", false)
-menu.AddCheckbox(TAB_VIS, "NPCs ESP", "npc_soldier", "Soldiers/Scientists", false, { parent = "npcs_esp", colorpicker = {0.25,0.85,1,1} })
-menu.AddCheckbox(TAB_VIS, "NPCs ESP", "npc_heli",    "Patrol Helicopter", false, { parent = "npcs_esp", colorpicker = {1,0.2,0.2,1} })
-menu.AddCheckbox(TAB_VIS, "NPCs ESP", "npc_name",    "Show Name", false, { parent = "npcs_esp" })
-menu.AddCheckbox(TAB_VIS, "NPCs ESP", "npc_dist",    "Distance", false, { parent = "npcs_esp" })
-menu.AddCheckbox(TAB_VIS, "NPCs ESP", "npc_health",  "Health Bar", false, { parent = "npcs_esp" })
-menu.AddCheckbox(TAB_VIS, "NPCs ESP", "npc_tracer",  "Snaplines", false, { parent = "npcs_esp", colorpicker = {1,1,1,0.35} })
-menu.AddSliderInt(TAB_VIS, "NPCs ESP", "npcs_maxdist", "Max Range (m)", 20, 1200, 450, "%d", { parent = "npcs_esp" })
-
--- ---------------- ANIMALS ESP ----------------
-menu.AddGroup(TAB_VIS, "Animals ESP")
-menu.AddCheckbox(TAB_VIS, "Animals ESP", "animals_esp",   "Enable Animals ESP", false)
-menu.AddCheckbox(TAB_VIS, "Animals ESP", "animal_bear",   "Bears", false, { parent = "animals_esp", colorpicker = {0.95,0.25,0.25,1} })
-menu.AddCheckbox(TAB_VIS, "Animals ESP", "animal_wolf",   "Wolves/Werewolves", false, { parent = "animals_esp", colorpicker = {1,0.55,0.2,1} })
-menu.AddCheckbox(TAB_VIS, "Animals ESP", "animal_boar",   "Boars", false, { parent = "animals_esp", colorpicker = {0.85,0.7,0.4,1} })
-menu.AddCheckbox(TAB_VIS, "Animals ESP", "animal_deer",   "Deer", false, { parent = "animals_esp", colorpicker = {0.4,0.9,0.5,1} })
-menu.AddCheckbox(TAB_VIS, "Animals ESP", "animals_name",  "Name", false, { parent = "animals_esp" })
-menu.AddCheckbox(TAB_VIS, "Animals ESP", "animals_dist",  "Distance", false, { parent = "animals_esp" })
-menu.AddSliderInt(TAB_VIS, "Animals ESP", "animals_maxdist", "Max Range (m)", 20, 1200, 450, "%d", { parent = "animals_esp" })
-
--- ---------------- ENVIRONMENT ----------------
-menu.AddGroup(TAB_VIS, "Environment")
-menu.AddCheckbox(TAB_VIS, "Environment", "no_fog",       "Remove All Fog", false)
-menu.AddCheckbox(TAB_VIS, "Environment", "no_grass",     "Remove Grass", false)
-menu.AddCheckbox(TAB_VIS, "Environment", "bright_light", "Boost Brightness", false)
-menu.AddCheckbox(TAB_VIS, "Environment", "hl_enemies",   "Highlight All Enemies", false)
-menu.AddSliderInt(TAB_VIS, "Environment", "fov_override", "Custom FOV (0=off)", 0, 120, 0, "%d")
-
--- ---------------- LOOT ESP ----------------
-menu.AddGroup(TAB_WORLD, "Loot Containers ESP")
-menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_esp",      "Enable Loot ESP", false)
-menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_barrels",  "Loot Barrels", true, { parent = "loot_esp", colorpicker = {0.25,0.75,1,1} })
-menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_crates",   "Standard Crates", true, { parent = "loot_esp", colorpicker = {0.95,0.7,0.25,1} })
-menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_military", "Military Crates", true, { parent = "loot_esp", colorpicker = {0.2,1,0.4,1} })
-menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_elite",    "Elite Crates", true, { parent = "loot_esp", colorpicker = {0.95,0.25,0.45,1} })
-menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_base_cat", "[+] Base Storage", true, { parent = "loot_esp" })
-menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_largebox", "Large Wooden Box", true, { parent = "loot_base_cat", colorpicker = {0.95,0.65,0.2,1} })
-menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_smallbox", "Small Wooden Box", true, { parent = "loot_base_cat", colorpicker = {0.85,0.5,0.15,1} })
-menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_tc",       "Tool Cupboard", true, { parent = "loot_base_cat", colorpicker = {0.2,0.85,1,1} })
-menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_locker",   "Locker", true, { parent = "loot_base_cat", colorpicker = {0.7,0.75,0.9,1} })
-menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_furnace",  "Furnace", true, { parent = "loot_base_cat", colorpicker = {1,0.42,0.15,1} })
-menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_workbench","Workbench", true, { parent = "loot_base_cat", colorpicker = {0.6,0.85,0.4,1} })
-menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_shelves",  "Shelves", true, { parent = "loot_base_cat", colorpicker = {0.8,0.6,0.35,1} })
-menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_sleepbag", "Sleeping Bag", true, { parent = "loot_base_cat", colorpicker = {0.45,0.9,0.65,1} })
-menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_dist",     "Show Distance", true, { parent = "loot_esp" })
-menu.AddCheckbox(TAB_WORLD, "Loot Containers ESP", "loot_tracer",   "Snaplines", false, { parent = "loot_esp", colorpicker = {1,1,1,0.35} })
-menu.AddSliderInt(TAB_WORLD, "Loot Containers ESP", "loot_maxdist", "Max Range (m)", 20, 1000, 350, "%d", { parent = "loot_esp" })
-
--- ---------------- BODY BAGS & DROPPED ----------------
-menu.AddGroup(TAB_WORLD, "Body Bags & Dropped")
-menu.AddCheckbox(TAB_WORLD, "Body Bags & Dropped", "bodybag_esp",    "Body Bags ESP", false, { colorpicker = {0.9,0.25,0.35,1} })
-menu.AddCheckbox(TAB_WORLD, "Body Bags & Dropped", "bodybag_dist",   "Distance", false, { parent = "bodybag_esp" })
-menu.AddCheckbox(TAB_WORLD, "Body Bags & Dropped", "bodybag_tracer", "Snaplines", false, { parent = "bodybag_esp", colorpicker = {1,1,1,0.35} })
-menu.AddSliderInt(TAB_WORLD, "Body Bags & Dropped", "bodybag_maxdist", "Range (m)", 20, 1000, 500, "%d", { parent = "bodybag_esp" })
-menu.AddCheckbox(TAB_WORLD, "Body Bags & Dropped", "dropped_esp",    "Dropped Items ESP", false)
-menu.AddCheckbox(TAB_WORLD, "Body Bags & Dropped", "dropped_tracer", "Snaplines", false, { parent = "dropped_esp", colorpicker = {1,0.4,0.9,1} })
-menu.AddCheckbox(TAB_WORLD, "Body Bags & Dropped", "dropped_dist",   "Distance", false, { parent = "dropped_esp" })
-menu.AddSliderInt(TAB_WORLD, "Body Bags & Dropped", "dropped_maxdist", "Range (m)", 10, 500, 150, "%d", { parent = "dropped_esp" })
-
--- ---------------- ORE NODES & PICKUPS ----------------
-menu.AddGroup(TAB_WORLD, "Ore Nodes & Pickups")
-menu.AddCheckbox(TAB_WORLD, "Ore Nodes & Pickups", "nodes_esp",    "Ore Nodes ESP", false)
-menu.AddCheckbox(TAB_WORLD, "Ore Nodes & Pickups", "node_stone",   "Stone Nodes", false, { parent = "nodes_esp", colorpicker = {0.85,0.85,0.9,1} })
-menu.AddCheckbox(TAB_WORLD, "Ore Nodes & Pickups", "node_sulfur",  "Sulfur Nodes", false, { parent = "nodes_esp", colorpicker = {0.95,0.85,0.2,1} })
-menu.AddCheckbox(TAB_WORLD, "Ore Nodes & Pickups", "node_iron",    "Metal/Iron Nodes", false, { parent = "nodes_esp", colorpicker = {0.45,0.75,1,1} })
-menu.AddCheckbox(TAB_WORLD, "Ore Nodes & Pickups", "nodes_dist",   "Distance", false, { parent = "nodes_esp" })
-menu.AddCheckbox(TAB_WORLD, "Ore Nodes & Pickups", "nodes_tracer", "Snaplines", false, { parent = "nodes_esp", colorpicker = {1,1,1,0.35} })
-menu.AddSliderInt(TAB_WORLD, "Ore Nodes & Pickups", "nodes_maxdist", "Range (m)", 20, 1200, 450, "%d", { parent = "nodes_esp" })
-menu.AddCheckbox(TAB_WORLD, "Ore Nodes & Pickups", "pickups_esp",  "Ground Pickups ESP", false)
-menu.AddCheckbox(TAB_WORLD, "Ore Nodes & Pickups", "pickup_ores",  "Loose Ores", false, { parent = "pickups_esp", colorpicker = {1,0.8,0.35,1} })
-menu.AddCheckbox(TAB_WORLD, "Ore Nodes & Pickups", "pickup_plants","Plants", false, { parent = "pickups_esp", colorpicker = {0.35,0.95,0.45,1} })
-menu.AddCheckbox(TAB_WORLD, "Ore Nodes & Pickups", "pickup_wood",  "Wood Logs", false, { parent = "pickups_esp", colorpicker = {0.75,0.55,0.35,1} })
-menu.AddCheckbox(TAB_WORLD, "Ore Nodes & Pickups", "pickups_dist", "Distance", false, { parent = "pickups_esp" })
-menu.AddSliderInt(TAB_WORLD, "Ore Nodes & Pickups", "pickups_maxdist", "Range (m)", 10, 600, 200, "%d", { parent = "pickups_esp" })
-
--- ---------------- INVENTORY VIEWER ----------------
-menu.AddGroup(TAB_INV, "Player Inventory Viewer")
-menu.AddCheckbox(TAB_INV, "Player Inventory Viewer", "inv_enabled", "Enable Inventory Viewer", false)
-menu.AddCombo(TAB_INV, "Player Inventory Viewer", "inv_mode", "View Mode",
-    {"Target (Near Crosshair)","Local Player","Both"}, 0, { parent = "inv_enabled" })
-menu.AddCheckbox(TAB_INV, "Player Inventory Viewer", "inv_weapons", "Weapons", true, { parent = "inv_enabled" })
-menu.AddCheckbox(TAB_INV, "Player Inventory Viewer", "inv_armor",   "Armor & Tier", true, { parent = "inv_enabled" })
-menu.AddCheckbox(TAB_INV, "Player Inventory Viewer", "inv_pack",    "Backpack Contents", true, { parent = "inv_enabled" })
-menu.AddCheckbox(TAB_INV, "Player Inventory Viewer", "inv_grid",    "Full Grid (Slots 7-36)", true, { parent = "inv_enabled" })
-menu.AddSliderInt(TAB_INV, "Player Inventory Viewer", "inv_x", "Panel X", 10, 1920, 35, "%d", { parent = "inv_enabled" })
-menu.AddSliderInt(TAB_INV, "Player Inventory Viewer", "inv_y", "Panel Y", 10, 1080, 180, "%d", { parent = "inv_enabled" })
-menu.AddSliderInt(TAB_INV, "Player Inventory Viewer", "inv_w", "Panel Width", 220, 520, 320, "%d", { parent = "inv_enabled" })
-menu.AddButton(TAB_INV, "Player Inventory Viewer", "btn_kill", "Kill Target", function()
-    local t = aim_target and aim_target.player
-    if t and t.IsAlive then
-        t.Health = 0
-        notify.Success("Killed", t.Name)
-    else
-        notify.Warning("No target")
-    end
-end)
-
-menu.AddGroup(TAB_INV, "Container & Body Bag Viewer")
-menu.AddCheckbox(TAB_INV, "Container & Body Bag Viewer", "bbg_viewer", "Enable Container Viewer", false)
-menu.AddCombo(TAB_INV, "Container & Body Bag Viewer", "bbg_mode", "Trigger",
-    {"Near Crosshair","Closest"}, 0, { parent = "bbg_viewer" })
-menu.AddSliderInt(TAB_INV, "Container & Body Bag Viewer", "bbg_x", "Viewer X", 10, 1920, 380, "%d", { parent = "bbg_viewer" })
-menu.AddSliderInt(TAB_INV, "Container & Body Bag Viewer", "bbg_y", "Viewer Y", 10, 1080, 180, "%d", { parent = "bbg_viewer" })
-menu.AddSliderInt(TAB_INV, "Container & Body Bag Viewer", "bbg_w", "Viewer Width", 220, 520, 300, "%d", { parent = "bbg_viewer" })
-
--- ---------------- SETTINGS ----------------
-menu.AddGroup(TAB_CFG, "Configuration")
-menu.AddButton(TAB_CFG, "Configuration", "btn_save", "Save Configuration", function()
-    notify.Success("Config saved")
-end)
-menu.AddButton(TAB_CFG, "Configuration", "btn_load", "Load Configuration", function()
-    notify.Warning("Config loaded")
-end)
-menu.AddCheckbox(TAB_CFG, "Configuration", "autoload", "Auto-Load On Launch", true)
-
-menu.AddGroup(TAB_CFG, "HUD & Automation")
-menu.AddCheckbox(TAB_CFG, "HUD & Automation", "watermark", "Watermark + FPS", true)
-menu.AddCheckbox(TAB_CFG, "HUD & Automation", "anti_afk",  "Anti-AFK", true)
-menu.AddCheckbox(TAB_CFG, "HUD & Automation", "notifs",    "On-Screen Toasts", true)
-menu.AddCheckbox(TAB_CFG, "HUD & Automation", "mv_boost",  "Speed/Jump Boost", false)
-menu.AddButton(TAB_CFG, "HUD & Automation", "btn_heal", "Heal Self", function()
-    local lp = entity.GetLocalPlayer()
-    if lp then
-        lp.Health = lp.MaxHealth
-        notify.Success("Healed")
-    end
-end)
-
--- ============================ STATE ============================
-local cfg = {}
-local function refresh_cfg()
-    cfg = {
-        aim_enabled   = menu.Get("aim_enabled"),
-        aim_silent    = menu.Get("aim_silent"),
-        aim_draw_fov  = menu.Get("aim_draw_fov"),
-        aim_vis_check = menu.Get("aim_vis_check"),
-        aim_team_check= menu.Get("aim_team_check"),
-        aim_prediction= menu.Get("aim_prediction"),
-        aim_highlight = menu.Get("aim_highlight"),
-        aim_bone      = menu.Get("aim_bone") or 0,
-        aim_fov       = menu.Get("aim_fov") or 140,
-        aim_smooth    = math.max(1, menu.Get("aim_smooth") or 4),
-        aim_speed     = menu.Get("aim_speed") or 350,
-        gun_recoil    = menu.Get("gun_recoil"),
-        gun_recoil_pct= (menu.Get("gun_recoil_pct") or 80)/100,
-        gun_rapid     = menu.Get("gun_rapid"),
-        gun_rapid_ms  = menu.Get("gun_rapid_ms") or 120,
-        gun_trigger   = menu.Get("gun_trigger"),
-        gun_trigger_ms= menu.Get("gun_trigger_ms") or 25,
-        zoom_enabled  = menu.Get("zoom_enabled"),
-        zoom_fov      = menu.Get("zoom_fov") or 30,
-        cam_track     = menu.Get("cam_track"),
-        player_esp    = menu.Get("player_esp"),
-        player_box    = menu.Get("player_box"),
-        player_chams  = menu.Get("player_chams"),
-        player_health = menu.Get("player_health"),
-        player_name   = menu.Get("player_name"),
-        player_dist   = menu.Get("player_dist"),
-        player_tracer = menu.Get("player_tracer"),
-        offscreen_ply = menu.Get("offscreen_ply"),
-        player_maxdist= menu.Get("player_maxdist") or 500,
-        player_font   = menu.Get("player_font") or 13,
-        npcs_esp      = menu.Get("npcs_esp"),
-        npc_soldier   = menu.Get("npc_soldier"),
-        npc_heli      = menu.Get("npc_heli"),
-        npc_name      = menu.Get("npc_name"),
-        npc_dist      = menu.Get("npc_dist"),
-        npc_health    = menu.Get("npc_health"),
-        npc_tracer    = menu.Get("npc_tracer"),
-        npcs_maxdist  = menu.Get("npcs_maxdist") or 450,
-        animals_esp   = menu.Get("animals_esp"),
-        animal_bear   = menu.Get("animal_bear"),
-        animal_wolf   = menu.Get("animal_wolf"),
-        animal_boar   = menu.Get("animal_boar"),
-        animal_deer   = menu.Get("animal_deer"),
-        animals_name  = menu.Get("animals_name"),
-        animals_dist  = menu.Get("animals_dist"),
-        animals_maxdist= menu.Get("animals_maxdist") or 450,
-        no_fog        = menu.Get("no_fog"),
-        no_grass      = menu.Get("no_grass"),
-        bright_light  = menu.Get("bright_light"),
-        hl_enemies    = menu.Get("hl_enemies"),
-        fov_override  = menu.Get("fov_override") or 0,
-        loot_esp      = menu.Get("loot_esp"),
-        bodybag_esp   = menu.Get("bodybag_esp"),
-        dropped_esp   = menu.Get("dropped_esp"),
-        nodes_esp     = menu.Get("nodes_esp"),
-        pickups_esp   = menu.Get("pickups_esp"),
-        inv_enabled   = menu.Get("inv_enabled"),
-        bbg_viewer    = menu.Get("bbg_viewer"),
-        watermark     = menu.Get("watermark"),
-        anti_afk      = menu.Get("anti_afk"),
-        notifs        = menu.Get("notifs"),
-        mv_boost      = menu.Get("mv_boost"),
-    }
-end
-refresh_cfg()
-
--- ============================ HELPERS ============================
-local BONE_NAMES = { "Head", "UpperTorso", "HumanoidRootPart" }
-
-local function get_bone(char, idx)
-    if not char then return nil end
-    local name = BONE_NAMES[(idx or 0) + 1] or "Head"
-    return char:FindFirstChild(name)
+-- helper: Color3 -> draw rgba float table
+local function col(c)
+    return { c.R, c.G, c.B, 1 }
 end
 
-local function dist2(ax,ay,az, bx,by,bz)
-    local dx,dy,dz = ax-bx, ay-by, az-bz
-    return dx*dx+dy*dy+dz*dz
-end
+local R15_BONES = {
+    {"Head","UpperTorso"},{"UpperTorso","LowerTorso"},
+    {"UpperTorso","LeftUpperArm"},{"LeftUpperArm","LeftLowerArm"},{"LeftLowerArm","LeftHand"},
+    {"UpperTorso","RightUpperArm"},{"RightUpperArm","RightLowerArm"},{"RightLowerArm","RightHand"},
+    {"LowerTorso","LeftUpperLeg"},{"LeftUpperLeg","LeftLowerLeg"},{"LeftLowerLeg","LeftFoot"},
+    {"LowerTorso","RightUpperLeg"},{"RightUpperLeg","RightLowerLeg"},{"RightLowerLeg","RightFoot"},
+}
+local R6_BONES = {
+    {"Head","Torso"},{"Torso","Left Arm"},{"Torso","Right Arm"},{"Torso","Left Leg"},{"Torso","Right Leg"},
+}
 
-local function is_visible(target_pos)
-    if not cfg.aim_vis_check then return true end
-    local ok, vis = pcall(function()
-        local cam = camera.GetPosition()
-        return raycast.IsVisible(cam, target_pos)
-    end)
-    return ok and vis or true
-end
+-- ---------- state ----------
+local S = {
+    on         = false,
+    entries    = {},
+    marks      = {},
+    hls        = {},
+    lastPacket = -math.huge,
+    textAt     = 0,
+    bound      = false,
+    conns      = {},
+    busy       = false,
+    screen     = nil,
+    hlFolder   = nil,
+    perms      = nil,
+    team       = nil,
+    pick       = nil,
+    skeletons  = {},   -- uid -> {folder, lines=[{x1,y1,x2,y2}|nil,...]}
+}
 
--- ============================ SILENT AIM ============================
-local silent_active = false
-local function sync_silent_aim()
-    local want = cfg.aim_enabled and cfg.aim_silent
-    if want ~= silent_active then
-        if want then
-            pcall(function() raycast.EnableSilentHook() end)
+-- ---------- permissions ----------
+local function getPerms()
+    if S.perms == nil then
+        local mod = Fust:FindFirstChild("AdminPerms")
+        local ok, res
+        if mod and mod:IsA("ModuleScript") then
+            local m = require(mod)
+            ok, res = pcall(m, mod)
         else
-            pcall(function() raycast.DisableSilentHook() end)
+            ok, res = false, nil
         end
-        silent_active = want
+        if not ok or type(res) ~= "table" then res = false end
+        S.perms = res
+    end
+    return S.perms or nil
+end
+
+local function canUse() return true end
+
+-- ---------- anchor parts (for LOS adornments fallback) ----------
+local anchorRoot = nil
+local function ensureAnchors()
+    if not anchorRoot or anchorRoot.Parent ~= workspace then
+        anchorRoot = instance.New("Folder", workspace)
+        anchorRoot.Name = "FustESPAnchors"
+    end
+    return anchorRoot
+end
+
+local function makeAnchor(name)
+    local root = ensureAnchors()
+    local part = instance.New("Part", root)
+    part.Name = name
+    part.Size = Vector3.New(0.2, 0.2, 0.2)
+    part.Transparency = 1
+    part.Anchored = true
+    part.CanCollide = false
+    part.CanQuery = false
+    part.CanTouch = false
+    part.CastShadow = false
+    return part
+end
+
+-- ---------- screen gui ----------
+local function ensureScreen()
+    if S.screen and S.screen.Parent == PlayerGui then return S.screen end
+
+    local existing = PlayerGui:FindFirstChild("FustAdminKit")
+    if existing then existing = existing:FindFirstChild("World") end
+    if existing then existing = existing:FindFirstChild("EspScreen") end
+
+    local gui
+    if existing and existing:IsA("ScreenGui") then
+        gui = existing:Clone()
+    else
+        gui = instance.New("ScreenGui", PlayerGui)
+        gui.Name = "FustAdminESP"
+        gui.ResetOnSpawn = false
+        gui.DisplayOrder = 10
+
+        -- marker template
+        local marker = instance.New("Frame", gui)
+        marker.Name = "Marker"
+        marker.BackgroundTransparency = 1
+        marker.Size = UDim2.fromOffset(0, 0)
+
+        local box = instance.New("Frame", marker)
+        box.Name = "Box"
+        box.BackgroundTransparency = 0.85
+        box.BackgroundColor3 = Color3.fromRGB(15, 17, 16)
+        box.AnchorPoint = Vector2.new(0.5, 0)
+        box.Size = UDim2.fromOffset(40, 60)
+
+        local stroke = instance.New("UIStroke", box)
+        stroke.Thickness = 1.5
+        stroke.Color = Color3.fromRGB(236, 230, 218)
+        stroke.Transparency = 0.1
+
+        local hp = instance.New("Frame", box)
+        hp.Name = "Hp"
+        hp.BackgroundTransparency = 0.4
+        hp.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+        hp.Size = UDim2.new(0, 3, 1, 0)
+        hp.Position = UDim2.new(0, -6, 0, 0)
+        hp.BorderSizePixel = 0
+
+        local fill = instance.New("Frame", hp)
+        fill.Name = "Fill"
+        fill.AnchorPoint = Vector2.new(0, 1)
+        fill.Position = UDim2.new(0, 0, 1, 0)
+        fill.Size = UDim2.new(1, 0, 1, 0)
+        fill.BackgroundColor3 = Color3.fromRGB(111, 163, 90)
+        fill.BorderSizePixel = 0
+
+        local tag = instance.New("Frame", marker)
+        tag.Name = "Tag"
+        tag.BackgroundTransparency = 1
+        tag.Size = UDim2.new(1, 0, 0, 30)
+        tag.Position = UDim2.new(0, 0, 0, -32)
+
+        local head = instance.New("Frame", tag)
+        head.Name = "Head"
+        head.BackgroundTransparency = 1
+        head.Size = UDim2.new(1, 0, 0, 16)
+
+        local tape = instance.New("TextLabel", head)
+        tape.Name = "Tape"
+        tape.Size = UDim2.new(0, 40, 1, 0)
+        tape.Visible = false
+        tape.BorderSizePixel = 0
+        tape.Font = Enum.Font.SourceSansBold
+        tape.TextSize = 10
+
+        local nameLbl = instance.New("TextLabel", head)
+        nameLbl.Name = "Name"
+        nameLbl.Size = UDim2.new(1, 0, 1, 0)
+        nameLbl.BackgroundTransparency = 1
+        nameLbl.TextColor3 = Color3.fromRGB(236, 230, 218)
+        nameLbl.TextSize = 13
+        nameLbl.Font = Enum.Font.SourceSansBold
+
+        local infoLbl = instance.New("TextLabel", head)
+        infoLbl.Name = "Info"
+        infoLbl.Size = UDim2.new(1, 0, 0, 14)
+        infoLbl.Position = UDim2.new(0, 0, 0, 16)
+        infoLbl.BackgroundTransparency = 1
+        infoLbl.TextColor3 = Color3.fromRGB(163, 167, 159)
+        infoLbl.TextSize = 11
+        infoLbl.Font = Enum.Font.SourceSans
+
+        local arrow = instance.New("Frame", gui)
+        arrow.Name = "Arrow"
+        arrow.BackgroundTransparency = 1
+        arrow.Size = UDim2.fromOffset(20, 20)
+
+        local pointer = instance.New("Frame", arrow)
+        pointer.Name = "Pointer"
+        pointer.Size = UDim2.fromOffset(8, 8)
+        pointer.AnchorPoint = Vector2.new(0.5, 0.5)
+        pointer.BorderSizePixel = 0
+        pointer.BackgroundColor3 = Color3.fromRGB(236, 230, 218)
+
+        local arrowLabel = instance.New("TextLabel", arrow)
+        arrowLabel.Name = "Label"
+        arrowLabel.Size = UDim2.fromOffset(120, 16)
+        arrowLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+        arrowLabel.BackgroundTransparency = 1
+        arrowLabel.TextColor3 = Color3.fromRGB(236, 230, 218)
+        arrowLabel.TextSize = 12
+        arrowLabel.Font = Enum.Font.SourceSansBold
+    end
+
+    gui.Name = "FustAdminESP"
+    S.screen = gui
+
+    for _, m in pairs(S.marks) do
+        m.frame:Destroy()
+        m.arrow:Destroy()
+        S.marks[m.uid] = nil
+    end
+    if S.skeletons then
+        for uid, skel in pairs(S.skeletons) do
+            if skel.folder then skel.folder:Destroy() end
+        end
+        table.clear(S.skeletons)
+    end
+    return gui
+end
+
+-- ---------- skeleton (now drawn with draw.Line each frame) ----------
+local function getSkeleton(uid)
+    if not S.skeletons[uid] then
+        S.skeletons[uid] = { folder = nil, lines = {} }
+    end
+    return S.skeletons[uid]
+end
+
+local function updateSkeleton(uid, char, color)
+    if not S.screen then return end
+    local skel = getSkeleton(uid)
+    if not char then return end
+
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local isR15 = (hum and hum.RigType == Enum.HumanoidRigType.R15)
+        or char:FindFirstChild("UpperTorso") ~= nil
+    local bones = isR15 and R15_BONES or R6_BONES
+    local camPos = camera.GetPosition()
+
+    -- store projected endpoints; actual draw.Line calls happen in the render pass
+    skel.points = {}
+    for i, pair in ipairs(bones) do
+        local p1 = char:FindFirstChild(pair[1])
+        local p2 = char:FindFirstChild(pair[2])
+        if p1 and p2 and utility.IsValid(p1) and utility.IsValid(p2) then
+            local s1, on1 = draw.WorldToScreen(p1.Position.X, p1.Position.Y, p1.Position.Z)
+            local s2, on2 = draw.WorldToScreen(p2.Position.X, p2.Position.Y, p2.Position.Z)
+            if on1 and on2 then
+                skel.points[i] = { s1, s2, color }
+            end
+        end
     end
 end
 
--- ============================ AIMBOT CORE ============================
-local aim_target = nil
-local last_fire_time = 0
-local rapid_next = 0
+local function hideSkeleton(uid)
+    local skel = S.skeletons[uid]
+    if skel then skel.points = nil end
+end
 
-local function pick_aim_target()
-    local cam = camera.GetPosition()
-    local best_score = math.huge
-    aim_target = nil
-    local fov2 = cfg.aim_fov * cfg.aim_fov
-
-    for _, p in ipairs(entity.GetPlayers()) do
-        if not p.IsLocal and p.IsAlive then
-            -- team check via cached Team property
-            if cfg.aim_team_check then
-                local lp = entity.GetLocalPlayer()
-                if lp and p.HasTeam and lp.HasTeam and p.Team == lp.Team then
-                    continue
-                end
-            end
-            local bone = get_bone(p.Character, cfg.aim_bone)
-            local pos = bone and bone.Position or p.Position
-            if not pos then continue end
-
-            local d2 = dist2(pos.X,pos.Y,pos.Z, cam.X,cam.Y,cam.Z)
-            if d2 > cfg.player_maxdist^2 then continue end
-            if not is_visible(pos) then continue end
-
-            local sx, sy, on = utility.WorldToScreen(pos)
-            if on then
-                local cx, cy = input.GetScreenCenter()
-                local sdx, sdy = sx - cx, sy - cy
-                local sd2 = sdx*sdx + sdy*sdy
-                if sd2 < fov2 then
-                    local score = sd2 + d2 * 0.001
-                    if score < best_score then
-                        best_score = score
-                        aim_target = { player = p, bone = bone, pos = pos }
-                    end
-                end
+local function drawSkeletons()
+    for uid, skel in pairs(S.skeletons) do
+        if skel.points then
+            for _, seg in ipairs(skel.points) do
+                draw.Line(seg[1][1], seg[1][2], seg[2][1], seg[2][2], col(seg[3]), 1.5)
             end
         end
     end
 end
 
-local function apply_aimbot()
-    if not cfg.aim_enabled then
-        aim_target = nil
+-- ---------- marks ----------
+local function makeMark(uid)
+    local gui = ensureScreen()
+    local markerTpl = gui:FindFirstChild("Marker")
+    local arrowTpl  = gui:FindFirstChild("Arrow")
+    if not (markerTpl and markerTpl:IsA("Frame") and arrowTpl and arrowTpl:IsA("Frame")) then
+        return nil
+    end
+
+    local frame = markerTpl:Clone()
+    frame.Name = "Mark_" .. uid
+    local box   = frame:FindFirstChild("Box")
+    local tag   = frame:FindFirstChild("Tag")
+    local head  = tag:FindFirstChild("Head")
+
+    local arrow = arrowTpl:Clone()
+    arrow.Name = "Arrow_" .. uid
+
+    local mark = {
+        uid       = uid,
+        frame     = frame,
+        box       = box,
+        stroke    = box:FindFirstChildOfClass("UIStroke"),
+        fill      = box:FindFirstChild("Hp"):FindFirstChild("Fill"),
+        tape      = head:FindFirstChild("Tape"),
+        name      = head:FindFirstChild("Name"),
+        info      = tag:FindFirstChild("Info"),
+        arrow     = arrow,
+        pointer   = arrow:FindFirstChild("Pointer"),
+        arrowLabel= arrow:FindFirstChild("Label"),
+        shown     = nil,
+        key       = false,
+        far       = false,
+        color     = COL.text,
+        lo        = CFG.BODY_LO,
+        hi        = CFG.BODY_HI,
+    }
+
+    frame.Visible = false
+    arrow.Visible = false
+    frame.Parent  = gui
+    arrow.Parent  = gui
+    S.marks[uid]  = mark
+    return mark
+end
+
+-- ---------- clear ----------
+local function clearAll()
+    for uid in pairs(S.marks) do
+        local m = S.marks[uid]
+        if not m then continue end
+        m.frame:Destroy()
+        m.arrow:Destroy()
+        S.marks[uid] = nil
+    end
+    for uid in pairs(S.hls) do
+        local h = S.hls[uid]
+        if not h then continue end
+        instance.Destroy(h)
+        S.hls[uid] = nil
+    end
+    if S.skeletons then
+        for uid, skel in pairs(S.skeletons) do
+            if skel.folder then skel.folder:Destroy() end
+        end
+        table.clear(S.skeletons)
+    end
+    table.clear(S.entries)
+    S.pick = nil
+
+    local pill = PlayerGui:FindFirstChild("FustAdmin")
+    if pill then pill = pill:FindFirstChild("Hud") end
+    if pill then pill = pill:FindFirstChild("EspPill") end
+    if pill and pill:IsA("TextLabel") then pill.Visible = false end
+end
+
+-- ---------- body extents ----------
+local function bodyExtents(root, char)
+    local cf = root.CFrame
+    local lo = Vector3.New(math.huge, math.huge, math.huge)
+    local hi = -lo
+
+    local function add(part)
+        if part.Transparency < 1 then
+            local localCf = cf:ToObjectSpace(part.CFrame)
+            local half    = part.Size / 2
+            local ex = math.abs(localCf.XVector.X)*half.X + math.abs(localCf.YVector.X)*half.Y + math.abs(localCf.ZVector.X)*half.Z
+            local ey = math.abs(localCf.XVector.Y)*half.X + math.abs(localCf.YVector.Y)*half.Y + math.abs(localCf.ZVector.Y)*half.Z
+            local ez = math.abs(localCf.XVector.Z)*half.X + math.abs(localCf.YVector.Z)*half.Y + math.abs(localCf.ZVector.Z)*half.Z
+            local ext = Vector3.New(ex, ey, ez)
+            lo = lo:Min(localCf.Position - ext)
+            hi = hi:Max(localCf.Position + ext)
+        end
+    end
+
+    for _, child in ipairs(char:GetChildren()) do
+        if child:IsA("BasePart") then
+            add(child)
+        elseif child:IsA("Accessory") or child:IsA("Tool") then
+            local handle = child:FindFirstChild("Handle")
+            if handle and handle:IsA("BasePart") then add(handle) end
+        end
+    end
+
+    if lo.X > hi.X then
+        return CFG.BODY_LO, CFG.BODY_HI
+    end
+    return lo:Max(Vector3.New(-8,-8,-8)), hi:Min(Vector3.New(8,8,8))
+end
+
+-- ---------- kind ----------
+local function kind(uid, e)
+    if e.staff then
+        return COL.staff, (e.inv and "STAFF • INVIS" or "STAFF"), COL.staff
+    elseif e.inv then
+        return COL.muted, "INVIS", COL.hover
+    else
+        local specTarget = LocalPlayer:GetAttribute("FustSpecTarget")
+        if type(specTarget) ~= "number" then specTarget = nil end
+        if specTarget and uid == specTarget then
+            return COL.amber,
+                (e.watch and "SPECTATING • WATCH" or (e.flag and "SPECTATING • AC" or "SPECTATING")),
+                COL.amber
+        end
+
+        local mateTeam
+        local entry = S.entries[specTarget]
+        if entry then mateTeam = entry.team end
+
+        if mateTeam and e.team == mateTeam then
+            return COL.mate,
+                (e.watch and "TEAMMATE • WATCH" or (e.flag and "TEAMMATE • AC" or "TEAMMATE")),
+                COL.mate
+        elseif e.watch then
+            return COL.watch, "WATCH", COL.watch
+        elseif e.flag then
+            return COL.bad, "AC", COL.badFill
+        else
+            return COL.text, nil, nil
+        end
+    end
+end
+
+-- ---------- speed text ----------
+local function speedText(e, char, showSlow)
+    local vel, seated
+    if char then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hrp and hrp:IsA("BasePart") then vel = hrp.AssemblyLinearVelocity end
+        seated = hum and hum.SeatPart ~= nil or false
+    else
+        seated = false
+    end
+
+    local speed
+    if vel then
+        speed = Vector3.New(vel.X, 0, vel.Z).Magnitude
+    else
+        speed = e.speed
+    end
+    if type(speed) ~= "number" or speed ~= speed then return "" end
+
+    if (showSlow and (seated or speed < CFG.FAST_AMBER)) then return "" end
+
+    local c
+    if seated or speed < CFG.FAST_AMBER then c = COL.muted
+    elseif speed < CFG.FAST_RED then c = COL.amber
+    else c = COL.bad end
+
+    return (" • <font color=\"#%s\">%d st/s%s</font>")
+        :format(c:ToHex(), math.floor(speed + 0.5), seated and ", seated" or "")
+end
+
+-- ---------- fill mark ----------
+local function fill(mark, rec, forceDetail, specUid, mateTeam, matePos)
+    local detail = forceDetail
+    if not detail then
+        detail = rec.d > CFG.FAR + (mark.far and -CFG.FAR_HYST or CFG.FAR_HYST)
+    end
+
+    if mark.far ~= detail then
+        mark.far = detail
+        local fade = detail and CFG.FAR_FADE or 0
+        mark.name.TextTransparency = fade
+        mark.info.TextTransparency = fade
+        mark.stroke.Transparency   = detail and 0.55 or 0.1
+    end
+
+    local kc, label, lc = kind(rec.uid, rec.e)
+    mark.key = rec.key
+    if mark.color ~= kc then
+        mark.color = kc
+        mark.name.TextColor3 = kc
+        mark.stroke.Color = kc
+        mark.pointer.BackgroundColor3 = kc
+    end
+
+    local ply = entity.GetPlayerByUserId(rec.uid)  -- helper below
+    local displayName = ply and ply.DisplayName or ("User " .. rec.uid)
+
+    if mark.name.Text ~= displayName then mark.name.Text = displayName end
+
+    mark.tape.Visible = label ~= nil
+    if label and lc then
+        if mark.tape.Text ~= label then mark.tape.Text = label end
+        mark.tape.BackgroundColor3 = lc
+        mark.tape.TextColor3 = (lc == COL.hover) and COL.text or COL.slot
+    end
+
+    local hp = math.max(0, rec.e.h)
+    local frac = (rec.e.m > 0) and math.clamp(hp / rec.e.m, 0, 1) or 0
+    local hpColor
+    if frac > 0.5 then hpColor = COL.good
+    elseif frac > 0.25 then hpColor = COL.amber
+    else hpColor = COL.bad end
+
+    mark.fill.Size = UDim2.fromScale(1, frac)
+    mark.fill.BackgroundColor3 = hpColor
+
+    local dist = math.floor(rec.d + 0.5)
+    local arrowText = ("%s • %d st"):format(displayName, dist)
+    if mark.arrowLabel.Text ~= arrowText then mark.arrowLabel.Text = arrowText end
+
+    if detail then
+        local info = ("%d st"):format(dist)
+        if mark.info.Text ~= info then mark.info.Text = info end
+    else
+        local near = forceDetail or rec.d <= CFG.DETAIL_NEAR
+        local hex = hpColor:ToHex()
+        local info = ("<font color=\"#%s\">%d HP</font> • %d st")
+            :format(hex, math.floor(hp + 0.5), dist)
+            .. speedText(rec.e, rec.char, not near)
+
+        if forceDetail then
+            if specUid and rec.uid ~= specUid and mateTeam ~= nil and rec.e.team == mateTeam then
+                local mateHex = COL.mate:ToHex()
+                local dFromMate = (rec.pos - matePos).Magnitude
+                info = info .. (" • <font color=\"#%s\">%d st from them</font>")
+                    :format(mateHex, math.floor(dFromMate + 0.5))
+            end
+            if rec.e.watch and rec.e.watchWhy then
+                info = info .. (" • <font color=\"#%s\">%s</font>")
+                    :format(COL.watch:ToHex(), rec.e.watchWhy)
+            end
+            if rec.e.watching then
+                info = info .. (" • <font color=\"#%s\">watching %s</font>")
+                    :format(COL.staff:ToHex(), rec.e.watching)
+            end
+            if rec.e.watchedBy and #rec.e.watchedBy > 0 then
+                info = info .. (" • <font color=\"#%s\">watched by %s</font>")
+                    :format(COL.staff:ToHex(), table.concat(rec.e.watchedBy, ", "))
+            end
+        end
+
+        if mark.info.Text ~= info then mark.info.Text = info end
+    end
+end
+
+-- ---------- highlights ----------
+local function applyHighlights(records, specUid)
+    local wanted = {}
+    if LocalPlayer:GetAttribute("FustReplayOpen") ~= true then
+        for _, r in ipairs(records) do
+            if not r.char then continue end
+            if r.uid == specUid then continue end
+            if r.d <= CFG.HL_NEAR then continue end
+            if not r.key and (r.uid ~= S.pick or r.d > CFG.HL_RANGE) then continue end
+
+            local rank = ((r.key or r.uid == S.pick) and 0 or 2000000)
+                + (r.onScreen and 0 or 1000000)
+                + r.d
+                - (S.hls[r.uid] and CFG.HL_KEEP_BONUS or 0)
+            table.insert(wanted, { r = r, rank = rank })
+        end
+        table.sort(wanted, function(a, b) return a.rank < b.rank end)
+    end
+
+    local active = {}
+    local folder = S.hlFolder
+    if not folder or folder.Parent ~= workspace then
+        folder = instance.New("Folder", workspace)
+        folder.Name = "FustESPOutlines"
+        S.hlFolder = folder
+    end
+
+    for i, w in ipairs(wanted) do
+        if i > CFG.MAX_HL then break end
+        local r = w.r
+        local char = r.char
+        local hl = S.hls[r.uid]
+        if hl and hl.Parent ~= folder then
+            instance.Destroy(hl)
+            hl = nil
+        end
+        if not hl then
+            hl = instance.New("Highlight", char)
+            hl.Name = "Outline_" .. r.uid
+            hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            hl.FillTransparency = 0.85
+            hl.OutlineTransparency = 0
+            S.hls[r.uid] = hl
+        end
+        if hl.Adornee ~= char then hl.Adornee = char end
+
+        local c = kind(r.uid, r.e)
+        if hl.OutlineColor ~= c then
+            hl.OutlineColor = c
+            hl.FillColor = c
+        end
+        active[r.uid] = true
+    end
+
+    for uid, hl in pairs(S.hls) do
+        if active[uid] then continue end
+        if not hl then continue end
+        instance.Destroy(hl)
+        S.hls[uid] = nil
+    end
+end
+
+-- ---------- pill ----------
+local function setPill(waiting, count, specUid)
+    local hud = PlayerGui:FindFirstChild("FustAdmin")
+    if hud then hud = hud:FindFirstChild("Hud") end
+    local pill = hud and hud:FindFirstChild("EspPill")
+    if not (pill and pill:IsA("TextLabel")) then return end
+
+    pill.Visible = true
+    if waiting then
+        pill.Text = "ESP, WAITING FOR THE SERVER"
         return
     end
-    pick_aim_target()
-    if not aim_target then return end
 
-    local target = aim_target.pos
-
-    -- Lead prediction using velocity
-    if cfg.aim_prediction and aim_target.player.Velocity then
-        local v = aim_target.player.Velocity
-        local cam = camera.GetPosition()
-        local d = (target - cam).Magnitude
-        local t = d / math.max(1, cfg.aim_speed)
-        target = target + (v * t)
-    end
-
-    -- Smoothed camera look
-    local smooth = math.max(1, cfg.aim_smooth)
-    pcall(function() camera.LookAt(target, smooth) end)
-
-    -- Silent aim redirect
-    if silent_active and aim_target.bone then
-        pcall(function() raycast.SetSilentTarget(aim_target.bone) end)
-    end
-
-    -- Triggerbot
-    if cfg.gun_trigger then
-        local now = utility.GetTime()
-        if now - last_fire_time >= (cfg.gun_trigger_ms/1000) then
-            local sx, sy, on = utility.WorldToScreen(target)
-            if on then
-                local cx, cy = input.GetScreenCenter()
-                local sdx, sdy = sx - cx, sy - cy
-                if (sdx*sdx + sdy*sdy) < (cfg.aim_fov^2) then
-                    utility.MouseClick("left")
-                    last_fire_time = now
-                end
-            end
+    local text = ("ESP • %d PLAYERS • %s"):format(count, StaffKeys.label("esp"))
+    local team = S.team
+    if team and specUid and team.s == specUid then
+        local here = 1
+        local away = {}
+        for _, m in ipairs(team.members) do
+            if m.here then here = here + 1
+            else table.insert(away, m.n) end
         end
-    end
-
-    -- Rapid fire
-    if cfg.gun_rapid then
-        local now = utility.GetTime()
-        if now >= rapid_next then
-            utility.MouseClick("left")
-            rapid_next = now + (cfg.gun_rapid_ms/1000)
+        text = text .. (" • TEAM %d/%d HERE"):format(here, #team.members + 1)
+        if #away > 0 then
+            text = text .. " • AWAY: " .. string.upper(table.concat(away, ", "))
         end
+    elseif specUid then
+        text = text .. " • NO TEAM"
     end
+    pill.Text = text
 end
 
--- ============================ ESP RENDERING ============================
-local function draw_player_esp()
-    if not cfg.player_esp then return end
-    local maxd2 = cfg.player_maxdist^2
+-- ---------- refresh ----------
+local function refresh(now)
+    local dt = now - S.lastPacket
+    if dt > CFG.STALE_CLEAR and next(S.entries) ~= nil then
+        clearAll()
+    end
 
+    if not ensureScreen() then return end
+
+    -- seed missing players from entity cache
     for _, p in ipairs(entity.GetPlayers()) do
-        if not p.IsLocal and p.IsAlive then
-            local d = p:DistanceTo()
-            if d > cfg.player_maxdist then continue end
+        if p.IsLocal then continue end
+        if S.entries[p.UserId] then continue end
+        local char = p.Character
+        if not char then continue end
+        local hum = p.Humanoid
+        S.entries[p.UserId] = {
+            pos   = p.Position or Vector3.New(0,0,0),
+            vel   = p.Velocity or Vector3.New(0,0,0),
+            at    = now,
+            h     = p.Health,
+            m     = p.MaxHealth,
+            speed = (p.Velocity and (Vector3.New(p.Velocity.X, 0, p.Velocity.Z).Magnitude)) or 0,
+            flag  = false, watch = false, inv = false, staff = false,
+        }
+    end
 
-            local b = p:GetBounds()
-            if not b.valid then
-                if cfg.offscreen_ply then
-                    local sw, sh = utility.GetScreenSize()
-                    local sx, sy, _ = p:GetBoneScreen("Head")
-                    local ang = math.atan2(sy - sh/2, sx - sw/2)
-                    local ex = sw/2 + math.cos(ang) * (sw/2 - 20)
-                    local ey = sh/2 + math.sin(ang) * (sh/2 - 20)
-                    draw.Text(ex, ey, "< " .. p.Name, {1,0.4,0.4,1}, cfg.player_font)
+    local textUpdate = dt > (1 / CFG.TEXT_HZ)
+    local camPos = camera.GetPosition()
+    local sw, sh = draw.GetScreenSize()
+    local center = Vector2.new(sw / 2, sh / 2)
+
+    local specUid = LocalPlayer:GetAttribute("FustSpecTarget")
+    if type(specUid) ~= "number" then specUid = nil end
+
+    local mateEntry = specUid and S.entries[specUid] or nil
+    local mateTeam  = mateEntry and mateEntry.team or nil
+
+    local matePos
+    if specUid then
+        local mp = entity.GetPlayerByUserId(specUid)
+        matePos = mp and mp.Position or nil
+        if not matePos and S.entries[specUid] then
+            matePos = S.entries[specUid].pos
+        end
+    end
+
+    local pickPx = CFG.PICK_PX
+    local records = {}
+    local nearest, picked = nil, nil
+
+    for uid, e in pairs(S.entries) do
+        local p = entity.GetPlayerByUserId(uid)
+        local char = p and p.Character or nil
+        local root = char and char:FindFirstChild("HumanoidRootPart") or nil
+        if not (root and utility.IsValid(root)) then
+            root, char = nil, nil
+        end
+
+        local pos
+        if root then
+            pos = root.Position
+        else
+            pos = e.pos
+            if pos then
+                local age = now - (e.at or 0)
+                if e.vel then
+                    pos = pos + e.vel * math.clamp(age, 0, CFG.PREDICT)
                 end
-                continue
             end
+        end
+        if not pos then continue end
 
-            local col = menu.GetColor("player_box")
+        local sx, sy, onScreen = draw.WorldToScreen(pos.X, pos.Y, pos.Z)
+        local pxDist
+        if onScreen then
+            pxDist = (Vector2.new(sx, sy) - center).Magnitude
+            if pxDist < pickPx then
+                nearest, pickPx = uid, pxDist
+            end
+            if onScreen and uid == S.pick and pxDist < (CFG.PICK_PX * CFG.PICK_KEEP) then
+                picked = uid
+            end
+        end
 
-            if cfg.player_box or cfg.player_chams then
-                if cfg.player_chams then
-                    draw.RectFilled(b.x, b.y, b.w, b.h, col)
+        local key = (uid == specUid or (mateTeam ~= nil and e.team == mateTeam))
+            or e.flag or e.watch or e.inv or e.staff
+
+        table.insert(records, {
+            uid = uid, e = e, root = root, char = char,
+            pos = pos, d = (pos - camPos).Magnitude,
+            key = key, onScreen = onScreen,
+        })
+    end
+
+    S.pick = picked or nearest
+
+    for _, rec in ipairs(records) do
+        local mark = S.marks[rec.uid] or makeMark(rec.uid)
+        if not mark then continue end
+        if rec.root and rec.char then
+            local lo, hi = bodyExtents(rec.root, rec.char)
+            mark.lo, mark.hi = lo, hi
+        end
+        fill(mark, rec, rec.key or rec.uid == S.pick, specUid, mateTeam, matePos)
+    end
+
+    -- drop stale marks
+    for uid in pairs(S.marks) do
+        if S.entries[uid] then continue end
+        local m = S.marks[uid]
+        if not m then continue end
+        m.frame:Destroy()
+        m.arrow:Destroy()
+        S.marks[uid] = nil
+        if S.skeletons[uid] then
+            if S.skeletons[uid].folder then S.skeletons[uid].folder:Destroy() end
+            S.skeletons[uid] = nil
+        end
+    end
+
+    applyHighlights(records, specUid)
+    setPill(not textUpdate, #records, specUid)
+end
+
+-- ---------- edge point ----------
+local function edgePoint(cam, worldPos)
+    local sw, sh = draw.GetScreenSize()
+    local center = Vector2.new(sw / 2, sh / 2)
+    local obj = cam.CFrame:PointToObjectSpace(worldPos)
+    local dir = Vector2.new(obj.X, -obj.Y)
+    if dir.Magnitude < 0.001 then dir = Vector2.New(0, 1) end
+    local u = dir.Unit
+
+    local xEdge = center.X - CFG.EDGE
+    local yEdge = (u.Y < 0) and (center.Y - CFG.EDGE_TOP) or (center.Y - CFG.EDGE_BOTTOM)
+
+    local tx, ty = math.huge, math.huge
+    if math.abs(u.X) > 0.001 then tx = xEdge / math.abs(u.X) end
+    if math.abs(u.Y) > 0.001 then ty = yEdge / math.abs(u.Y) end
+
+    return center + u * math.min(tx, ty), u
+end
+
+-- ---------- per-frame render ----------
+local function frame(dt)
+    local now = utility.GetTime()
+
+    if now - S.textAt >= 0.2 then
+        S.textAt = now
+        local ok, err = pcall(refresh, now)
+        if not ok then warn("[Fust] FustAdminESP: refresh failed:", err) end
+    end
+
+    local cam = workspace.CurrentCamera
+    if not cam then return end
+
+    for uid, mark in pairs(S.marks) do
+        local e = S.entries[uid]
+        if not e then continue end
+
+        local p = entity.GetPlayerByUserId(uid)
+        local char = p and p.Character or nil
+        local root = char and char:FindFirstChild("HumanoidRootPart") or nil
+        if not (root and utility.IsValid(root)) then root = nil end
+
+        local pos
+        if root then
+            pos = root.Position
+        else
+            pos = e.pos
+            if pos then
+                local age = now - (e.at or 0)
+                if e.vel then
+                    pos = pos + e.vel * math.clamp(age, 0, CFG.PREDICT)
                 end
-                draw.Rect(b.x, b.y, b.w, b.h, col)
             end
+        end
+        if not pos then continue end
 
-            if cfg.player_health then
-                local hp = p.Health
-                local mhp = p.MaxHealth or 100
-                local frac = math.min(1, math.max(0, hp/mhp))
-                local bw = math.max(30, b.w)
-                draw.RectFilled(b.x, b.y - 8, bw, 4, {0.1,0.1,0.1,0.8})
-                draw.RectFilled(b.x, b.y - 8, bw*frac, 4, {frac>0.5 and 0.2 or 1, frac>0.5 and 1 or 0.3, 0.2, 1})
-                draw.Text(b.x + bw/2, b.y - 20, tostring(math.floor(hp)), {1,1,1,1}, 10)
-            end
+        -- snap correction
+        if not root and mark.shown and (pos - mark.shown).Magnitude <= CFG.SNAP then
+            local t = math.min(1, dt * (CFG.CORRECT / CFG.SNAP))
+            pos = mark.shown:Lerp(pos, t)
+        end
+        mark.shown = pos
 
-            if cfg.player_name then
-                draw.Text(b.x + b.w/2, b.y + b.h + 4, p.Name, {1,1,1,1}, cfg.player_font)
+        local lo, hi = mark.lo, mark.hi
+        local cf = root and root.CFrame or CFrame.new(pos)
+
+        if not root then
+            local maxAxis = math.max(-lo.X, hi.X, -lo.Z, hi.Z)
+            lo = Vector3.New(-maxAxis, lo.Y, -maxAxis)
+            hi = Vector3.New( maxAxis, hi.Y,  maxAxis)
+        end
+
+        local sw, sh = draw.GetScreenSize()
+        local corners = 0
+        local minX, minY = math.huge, math.huge
+        local maxX, maxY = -math.huge, -math.huge
+
+        for i = 0, 7 do
+            local cx = (i % 2 == 0) and lo.X or hi.X
+            local cy = (i % 4 < 2) and lo.Y or hi.Y
+            local cz = (i < 4) and lo.Z or hi.Z
+            local wx, wy, wz = cf:PointToWorldSpace(Vector3.New(cx, cy, cz)):Unpack()
+            local sx, sy, ok = draw.WorldToScreen(wx, wy, wz)
+            if not ok then continue end
+            corners = corners + 1
+            minX = math.min(minX, sx); maxX = math.max(maxX, sx)
+            minY = math.min(minY, sy); maxY = math.max(maxY, sy)
+        end
+
+        if corners > 0
+            and maxX >= 0 and minX <= sw
+            and maxY >= 0 and minY <= sh then
+
+            local x0 = math.max(minX, -sw)
+            local x1 = math.min(maxX, sw + CFG.BOX_PAD)
+            local y0 = math.max(minY, -sh)
+            local y1 = math.min(maxY, sh + CFG.BOX_PAD)
+
+            local bw = math.max((x1 - x0) + CFG.BOX_PAD, CFG.BOX_MIN)
+            local bh = math.max((y1 - y0) + CFG.BOX_PAD, CFG.BOX_MIN)
+
+            mark.frame.Position = UDim2.fromOffset((x0 + x1) / 2, y0 - CFG.BOX_PAD)
+            mark.box.Size = UDim2.fromOffset(bw, bh)
+            mark.frame.Visible = true
+            mark.arrow.Visible = false
+
+            if char then
+                updateSkeleton(uid, char, mark.color)
+            else
+                hideSkeleton(uid)
             end
-            if cfg.player_dist then
-                draw.Text(b.x + b.w/2, b.y + b.h + 18, string.format("%.0fm", d), {0.8,0.8,0.8,1}, 10)
-            end
-            if cfg.player_tracer then
-                local tc = menu.GetColor("player_tracer")
-                local cx, cy = input.GetScreenCenter()
-                draw.Line(cx, cy, b.x + b.w/2, b.y + b.h/2, tc)
+        else
+            mark.frame.Visible = false
+            hideSkeleton(uid)
+
+            if mark.key then
+                local ep, u = edgePoint(cam, pos)
+                mark.arrow.Position = UDim2.fromOffset(ep.X, ep.Y)
+                mark.pointer.Position = UDim2.fromOffset(u.X * 12, u.Y * 12)
+                mark.arrowLabel.Position = UDim2.fromOffset(-u.X * 16, -u.Y * 16)
+                mark.arrow.Visible = true
+            else
+                mark.arrow.Visible = false
             end
         end
     end
+
+    drawSkeletons()
 end
 
-local function draw_world_esp(kind, maxdist, font)
-    local ws = game.Workspace
-    if not ws then return end
-    local cam = camera.GetPosition()
-    local maxd2 = maxdist^2
+-- ---------- LOS lines module ----------
+local LOS = {
+    on = false, conn = nil, lines = {}, checkAt = 0, filterAt = -math.huge,
+    params = nil, pitch = {}, lookHooked = false, SS = nil, folder = nil,
 
-    for _, obj in ipairs(ws:GetChildren()) do
-        local n = (obj.Name or ""):lower()
-        local match = false
-        if kind == "loot" then
-            match = (n:find("barrel") and cfg.loot_barrels) or
-                    (n:find("crate")  and (cfg.loot_crates or cfg.loot_military or cfg.loot_elite)) or
-                    (n:find("largebox") and cfg.loot_largebox) or
-                    (n:find("smallbox") and cfg.loot_smallbox) or
-                    (n:find("toolcup") and cfg.loot_tc) or
-                    (n:find("locker") and cfg.loot_locker) or
-                    (n:find("furnace") and cfg.loot_furnace) or
-                    (n:find("workbench") and cfg.loot_workbench) or
-                    (n:find("shelf") and cfg.loot_shelves) or
-                    (n:find("sleeping") and cfg.loot_sleepbag)
-        elseif kind == "bodybag" then
-            match = n:find("bodybag") or n:find("corpse")
-        elseif kind == "dropped" then
-            match = n:find("dropped") or n:find("pickup")
-        elseif kind == "node" then
-            match = (n:find("stone") and cfg.node_stone) or
-                    (n:find("sulfur") and cfg.node_sulfur) or
-                    ((n:find("iron") or n:find("metal")) and cfg.node_iron)
-        elseif kind == "pickup" then
-            match = (n:find("ore") and cfg.pickup_ores) or
-                    ((n:find("plant") or n:find("hemp") or n:find("corn") or n:find("pumpkin")) and cfg.pickup_plants) or
-                    ((n:find("wood") or n:find("log")) and cfg.pickup_wood)
+    shared = function()
+        if LOS.SS == nil then
+            local mod = Fust:FindFirstChild("SpecShared")
+            local ok, res = pcall(function()
+                if mod and mod:IsA("ModuleScript") then return require(mod) end
+            end)
+            if ok and type(res) == "table" then
+                if type(res.losAt) ~= "function" then res = false end
+                if type(res.K) ~= "table" or not res.K.LOS then res = false end
+            else
+                res = false
+            end
+            LOS.SS = res
         end
-        if not match then continue end
+        return LOS.SS or nil
+    end,
 
-        local part = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart")
-        if not part or not part.Position then continue end
-        local pos = part.Position
-        local d2 = dist2(pos.X,pos.Y,pos.Z, cam.X,cam.Y,cam.Z)
-        if d2 > maxd2 then continue end
+    hookLook = function()
+        if LOS.lookHooked then return end
+        LOS.lookHooked = true
+        task.spawn(function()
+            local ev = Remotes:WaitForChild("LookPitch", 30)
+            local decMod = Fust:FindFirstChild("LookShared")
+            if not (ev and ev:IsA("UnreliableRemoteEvent") and decMod and decMod:IsA("ModuleScript")) then return end
+            local M = require(decMod)
+            local ok, D = pcall(M, decMod)
+            if not (ok and type(D) == "table") then return end
+            if type(D.Decode) ~= "function" or type(D.ToRadians) ~= "function" then return end
 
-        local sx, sy, on = utility.WorldToScreen(pos)
-        if not on then continue end
+            local conn = ev.OnClientEvent:Connect(function(data)
+                if not LOS.on then return end
+                local ok2, tbl = pcall(D.Decode, data)
+                if not (ok2 and type(tbl) == "table") then return end
+                local t = utility.GetTime()
+                for k, v in pairs(tbl) do
+                    if type(k) == "number" and type(v) == "number" then
+                        LOS.pitch[k] = { r = D.ToRadians(v), at = t }
+                    end
+                end
+            end)
+            table.insert(S.conns, conn)
+        end)
+    end,
 
-        local col = {1,1,1,1}
-        if kind == "loot" then col = {0.95,0.7,0.25,1} end
-        if kind == "bodybag" then col = {0.9,0.25,0.35,1} end
-        if kind == "dropped" then col = {1,0.4,0.9,1} end
-        if kind == "node" then col = {0.85,0.85,0.9,1} end
-        if kind == "pickup" then col = {1,0.8,0.35,1} end
+    specUid = function()
+        local v = LocalPlayer:GetAttribute("FustSpecTarget")
+        return type(v) == "number" and v or nil
+    end,
 
-        draw.Text(sx, sy, obj.Name, col, font)
-        if (kind=="loot" and cfg.loot_dist) or (kind=="bodybag" and cfg.bodybag_dist) or (kind=="dropped" and cfg.dropped_dist) or (kind=="node" and cfg.nodes_dist) or (kind=="pickup" and cfg.pickups_dist) then
-            draw.Text(sx, sy+12, string.format("%.0fm", math.sqrt(d2)), {0.8,0.8,0.8,1}, 10)
+    wanted = function()
+        if LocalPlayer:GetAttribute("FustLosLines") == true
+            and (S.on or LOS.specUid() ~= nil) then
+            return StaffState.get(LocalPlayer, "StaffPvP") ~= true
         end
-        if (kind=="loot" and cfg.loot_tracer) or (kind=="bodybag" and cfg.bodybag_tracer) or (kind=="dropped" and cfg.dropped_tracer) or (kind=="node" and cfg.nodes_tracer) then
-            local cx, cy = input.GetScreenCenter()
-            draw.Line(cx, cy, sx, sy, {1,1,1,0.35})
+        return false
+    end,
+
+    aim = function(uid)
+        local ss = LOS.shared()
+        local e = S.entries[uid]
+        local p = entity.GetPlayerByUserId(uid)
+        local char = p and p.Character or nil
+        local root = char and char:FindFirstChild("HumanoidRootPart") or nil
+        if not (root and utility.IsValid(root)) then root, char = nil, nil end
+
+        local pitchRec = LOS.pitch[uid]
+        local pitch
+        if pitchRec and utility.GetTime() - pitchRec.at < 2.5 then
+            pitch = pitchRec.r
+        elseif e and e.aim then
+            pitch = math.asin(math.clamp(e.aim.Y, -1, 1))
+        else
+            pitch = 0
         end
-    end
-end
 
--- ============================ HUD / WATERMARK ============================
-local function draw_hud()
-    if not cfg.watermark then return end
-    local fps = utility.GetFPS()
-    local txt = string.format("FUST ULTIMATE | %.0f FPS | Place %d", fps, game.PlaceId)
-    draw.Text(8, 8, txt, {0.3,1,0.3,1}, 12)
-end
-
--- ============================ ENVIRONMENT ============================
-local function apply_environment()
-    if cfg.no_fog then
-        lighting.SetFogStart(100000)
-        lighting.SetFogEnd(100000)
-    end
-    if cfg.no_grass then
-        terrain.SetGrassLength(0)
-    end
-    if cfg.bright_light then
-        lighting.SetBrightness(2)
-        lighting.SetAmbient(1)
-        lighting.SetOutdoorAmbient(1)
-    end
-    if cfg.fov_override > 0 then
-        camera.SetFov(cfg.fov_override)
-    elseif cfg.zoom_enabled then
-        camera.SetFov(cfg.zoom_fov)
-    end
-end
-
--- ============================ HIGHLIGHT ENEMIES ============================
-thread.Create(function()
-    if not menu.Get("hl_enemies") then return end
-    if not instance.IsReady() then return end
-    for _, ply in ipairs(entity.GetPlayers()) do
-        local ok, char = pcall(function() return ply.Character end)
-        if ok and char and not ply.IsLocal and not char:FindFirstChildOfClass("Highlight") then
-            instance.New("Highlight", char)
+        if root and char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health <= 0 then return nil, nil end
+            local head = char:FindFirstChild("Head")
+            local aimPt = (head and head:IsA("BasePart")) and head.Position
+                or (root.Position + Vector3.New(0, 1.5, 0))
+            local look = root.CFrame.LookVector
+            return aimPt, ss.aimDir(look.X, look.Z, pitch)
+        elseif e and e.pos and e.aim then
+            return e.pos + Vector3.New(0, 1.5, 0), ss.aimDir(e.aim.X, e.aim.Z, pitch)
         end
-    end
-end, 500)
+        return nil, nil
+    end,
 
--- ============================ MOVEMENT BOOST ============================
-thread.Create(function()
-    if not menu.Get("mv_boost") then return end
-    local matches, err = getgc({"WalkSpeed", "JumpPower"})
-    if err then return end
-    if #matches == 0 then return end
-    setgc({ WalkSpeed = 32, JumpPower = 60 })
-end, 1000)
+    chest = function(uid)
+        local e = S.entries[uid]
+        if e and e.inv then return nil end
+        local p = entity.GetPlayerByUserId(uid)
+        local char = p and p.Character or nil
+        local root = char and char:FindFirstChild("HumanoidRootPart") or nil
+        if not (root and utility.IsValid(root)) then root, char = nil, nil end
 
--- ============================ HOLD-TO-SPRINT (Shift) ============================
-utility.OnKey(0xA0, "hold", function(held)
-    local lp = entity.GetLocalPlayer()
-    if lp then lp.WalkSpeed = held and 30 or 16 end
-end)
+        if root and char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health <= 0 then return nil end
+            return root.Position + Vector3.New(0, 0.8, 0)
+        elseif e and e.pos then
+            return e.pos + Vector3.New(0, 0.8, 0)
+        end
+        return nil
+    end,
 
--- ============================ LOCK-ON CAMERA (G) ============================
-local track_active = false
-menu.SetCallback("cam_track", function(on)
+    solid = function(origin, dir, maxDist)
+        local params = LOS.params
+        local travelled = 0
+        for _ = 1, 4 do
+            local remaining = maxDist - travelled
+            if remaining <= 0.05 then return nil end
+            local to = origin + dir * remaining
+            local hit, pos, dist, inst, terrain = raycast.Cast(origin + dir * travelled, to)
+            if not hit then return nil end
+            local hitDist = travelled + dist
+            local instOk = inst and inst:IsA("BasePart")
+            if instOk then
+                instOk = inst.Transparency >= 0.9 or not inst.CanCollide
+            end
+            if not instOk or inst == workspace.Terrain then return hitDist end
+            travelled = hitDist + 0.05
+        end
+        return nil
+    end,
+
+    refreshFilter = function(now)
+        if not LOS.params then
+            LOS.params = RaycastParams.new()
+            LOS.params.FilterType = Enum.RaycastFilterType.Exclude
+            LOS.params.IgnoreWater = true
+        end
+        if now - LOS.filterAt >= 1 then
+            LOS.filterAt = now
+            local chars = {}
+            for _, p in ipairs(entity.GetPlayers()) do
+                if p.Character then table.insert(chars, p.Character) end
+            end
+            LOS.params.FilterDescendantsInstances = chars
+        end
+    end,
+
+    pick = function(camPos, maxLines)
+        local out = {}
+        local spec = LOS.specUid()
+        if spec and spec ~= LocalPlayer.UserId then table.insert(out, spec) end
+        if S.on then
+            local list = {}
+            for uid, e in pairs(S.entries) do
+                if uid == spec or e.inv or not e.pos then continue end
+                table.insert(list, { uid = uid, d = (e.pos - camPos).Magnitude })
+            end
+            table.sort(list, function(a, b) return a.d < b.d end)
+            for _, item in ipairs(list) do
+                if #out >= maxLines + (spec and 1 or 0) then break end
+                table.insert(out, item.uid)
+            end
+        end
+        return out
+    end,
+
+    others = function(selfUid)
+        local seen, out = {}, {}
+        for uid in pairs(S.entries) do
+            if uid == selfUid then continue end
+            seen[uid] = true
+            table.insert(out, uid)
+        end
+        for _, p in ipairs(entity.GetPlayers()) do
+            if p.UserId == selfUid or seen[p.UserId] or not p.Character then continue end
+            table.insert(out, p.UserId)
+        end
+        return out
+    end,
+
+    check = function(selfUid, origin, dir, len)
+        local ss = LOS.shared()
+        local solidDist = LOS.solid(origin, dir, len) or len
+        local best, bestDist = nil, math.huge
+
+        for _, uid in ipairs(LOS.others(selfUid)) do
+            local chest = LOS.chest(uid)
+            local d
+            if chest then d = ss.losAt(origin, dir, chest, len) end
+            if not d or d >= bestDist then continue end
+            best, bestDist = chest, d
+        end
+
+        if not best then return solidDist, false end
+        local delta = best - origin
+        local mag = delta.Magnitude
+        if mag < 1 then return solidDist, false end
+        local block = LOS.solid(origin, delta.Unit, mag)
+        local blocked = (block ~= nil) and (block < mag - 1.5) or false
+        return solidDist, blocked
+    end,
+
+    line = function(uid)
+        if not LOS.folder or LOS.folder.Parent ~= PlayerGui then
+            for _, l in pairs(LOS.lines) do
+                l.box:Destroy(); l.at:Destroy()
+                LOS.lines[l.uid] = nil
+            end
+            local folder = instance.New("Folder", PlayerGui)
+            folder.Name = "FustLosLines"
+            LOS.folder = folder
+        end
+        if LOS.lines[uid] then return LOS.lines[uid] end
+
+        local tpl = PlayerGui:FindFirstChild("FustAdminKit")
+        if tpl then tpl = tpl:FindFirstChild("World") end
+        if tpl then tpl = tpl:FindFirstChild("EspLos") end
+        if not (tpl and tpl:IsA("BoxHandleAdornment")) then return nil end
+
+        local box = tpl:Clone()
+        box.Name = "Los_" .. uid
+        local at = makeAnchor("FustLos_" .. uid)
+        box.Adornee = at
+        box.CFrame = CFrame.identity
+        box.Parent = LOS.folder
+
+        local rec = { uid = uid, box = box, at = at, len = 0, red = false }
+        LOS.lines[uid] = rec
+        return rec
+    end,
+
+    drop = function(uid)
+        local l = LOS.lines[uid]
+        if l then
+            l.box:Destroy(); l.at:Destroy()
+            LOS.lines[uid] = nil
+        end
+    end,
+
+    step = function()
+        local ss = LOS.shared()
+        local cam = workspace.CurrentCamera
+        if not (ss and cam) then return end
+
+        local K = ss.K.LOS
+        local now = utility.GetTime()
+        local camPos = cam.CFrame.Position
+
+        if now - LOS.checkAt >= 1 / K.HZ then
+            LOS.checkAt = now
+            LOS.refreshFilter(now)
+
+            local active = {}
+            for _, uid in ipairs(LOS.pick(camPos, K.MAX_LINES)) do
+                local aimPt, aimDir = LOS.aim(uid)
+                local line = (aimPt and aimDir) and LOS.line(uid) or nil
+                if not (line and aimPt and aimDir) then continue end
+                active[uid] = true
+                local len, red = LOS.check(uid, aimPt, aimDir, K.LEN)
+                line.len, line.red = len, red
+            end
+            for uid in pairs(LOS.lines) do
+                if active[uid] then continue end
+                LOS.drop(uid)
+            end
+        end
+
+        for uid, l in pairs(LOS.lines) do
+            local aimPt, aimDir = LOS.aim(uid)
+            if aimPt and aimDir then
+                local endPt = aimPt + aimDir * l.len
+                local delta = endPt - aimPt
+                local mag = delta.Magnitude
+                if mag < 0.5 then
+                    l.box.Visible = false
+                else
+                    local mid = aimPt + delta * 0.5
+                    local dist = (mid - camPos).Magnitude
+                    local thickness = math.clamp(dist * 0.0025, 0.05, l.red and 0.3 or 0.22)
+                    l.box.Size = Vector3.New(thickness, thickness, mag)
+                    l.at.CFrame = CFrame.lookAt(mid, endPt)
+                    l.box.Color3 = l.red and COL.bad or COL.text
+                    l.box.Transparency = l.red and 0.1 or 0.35
+                    l.box.Visible = true
+                end
+            else
+                l.box.Visible = false
+            end
+        end
+    end,
+
+    sync = function()
+        local want = LOS.wanted()
+        if want then want = LOS.shared() ~= nil end
+        if want == LOS.on then return end
+        LOS.on = want
+
+        if want then
+            LOS.hookLook()
+            LOS.checkAt = 0
+            LOS.conn = RunService.RenderStepped:Connect(function()
+                local ok, err = pcall(LOS.step)
+                if not ok then
+                    warn("[Fust] FustAdminESP: LOS lines failed:", err)
+                    LOS.on = false
+                    if LOS.conn then LOS.conn:Disconnect(); LOS.conn = nil end
+                end
+            end)
+        else
+            if LOS.conn then LOS.conn:Disconnect(); LOS.conn = nil end
+            for uid in pairs(LOS.lines) do LOS.drop(uid) end
+            table.clear(LOS.pitch)
+        end
+    end,
+}
+
+-- ---------- toggle ----------
+local function setOn(on)
+    if on == S.on then return end
+    S.on = on
+
     if on then
-        local t = aim_target
-        if t and t.bone and t.player.Humanoid then
-            pcall(function()
-                camera.TrackTarget(t.bone, t.player.Humanoid, 0x47, 500)
-                track_active = true
+        S.lastPacket = utility.GetTime()
+        S.textAt = 0
+        if not S.bound then
+            S.bound = true
+            -- per-frame render via thread loop (Vector API has no BindToRenderStep)
+            thread.Create(function()
+                while S.on do
+                    local dt = utility.GetDeltaTime()
+                    local ok, err = pcall(frame, dt)
+                    if not ok then
+                        warn("[Fust] FustAdminESP: frame failed:", err)
+                    end
+                    sleep(0)
+                end
             end)
         end
     else
-        if track_active then
-            camera.StopTracking()
-            track_active = false
+        if S.bound then
+            S.bound = false
         end
+        clearAll()
+        if S.screen then
+            instance.Destroy(S.screen)
+            S.screen = nil
+        end
+    end
+end
+
+local function toggleRequest()
+    local newState = not S.on
+    setOn(newState)
+    local rf = Remotes:FindFirstChild("AdminAction")
+    if rf and rf:IsA("RemoteFunction") then
+        S.busy = true
+        task.spawn(function()
+            pcall(function()
+                rf:InvokeServer("esp", { on = newState })
+            end)
+            S.busy = false
+        end)
+    end
+end
+
+-- input binding
+do
+    local conns = S.conns
+    local conn = UIS.InputBegan:Connect(function(input)
+        if StaffKeys.matches(input, "esp") and not UIS:GetFocusedTextBox() then
+            toggleRequest()
+        end
+    end)
+    table.insert(conns, conn)
+end
+
+local function syncMain()
+    local enabled = (StaffState.get(LocalPlayer, "AdminESP") == true) and canUse() or false
+    setOn(enabled)
+end
+
+-- ---------- packet handler ----------
+local function onPacket(data)
+    if not (S.on and type(data) == "table") then return end
+    local list = data.list
+    if type(list) ~= "table" then return end
+
+    local now = utility.GetTime()
+    S.lastPacket = now
+    S.team = nil
+
+    local team = data.team
+    if type(team) == "table" then
+        if type(team.s) == "number" and type(team.members) == "table" then
+            local members = {}
+            for _, m in ipairs(team.members) do
+                if type(m) ~= "table" then continue end
+                if type(m.u) ~= "number" then continue end
+                table.insert(members, {
+                    u = m.u,
+                    n = tostring(m.n or m.u),
+                    here = m.here == true,
+                })
+            end
+            S.team = { s = team.s, members = members }
+        end
+    end
+
+    local seen = {}
+    for _, item in ipairs(list) do
+        if type(item) ~= "table" then continue end
+        if type(item.u) ~= "number" then continue end
+        if typeof(item.p) ~= "Vector3" or item.u == LocalPlayer.UserId then continue end
+        seen[item.u] = true
+
+        local e = S.entries[item.u]
+        if not e then
+            e = { h = 0, m = 0, inv = false, flag = false, staff = false, watch = false }
+            S.entries[item.u] = e
+        end
+
+        local vel
+        if typeof(item.v) == "Vector3" and item.v.Magnitude < 2000 then vel = item.v end
+        local speed = vel and Vector3.New(vel.X, 0, vel.Z).Magnitude or nil
+
+        e.speed = speed
+        e.vel   = vel
+        e.at    = now
+        e.pos   = item.p
+        e.h     = type(item.h) == "number" and item.h or 0
+        e.m     = type(item.m) == "number" and item.m or 0
+        e.inv   = item.i == true
+        e.flag  = item.f == true
+        e.staff = item.s == true
+        e.watch = item.wt == true
+
+        if type(item.wy) == "string" then
+            e.watchWhy = (string.sub(item.wy, 1, 60))
+                :gsub("[<>&]", { ["<"] = "&lt;", [">"] = "&gt;", ["&"] = "&amp;" })
+        else
+            e.watchWhy = nil
+        end
+
+        local aim
+        if typeof(item.a) == "Vector3" and item.a.Magnitude > 0.5 then
+            aim = item.a.Unit
+        end
+        e.aim = aim
+        e.team = type(item.t) == "string" and item.t or nil
+
+        local watchedBy
+        if type(item.w) == "table" then
+            watchedBy = {}
+            for _, n in ipairs(item.w) do
+                if type(n) == "string" then table.insert(watchedBy, n) end
+            end
+            if #watchedBy <= 0 then watchedBy = nil end
+        end
+        e.watchedBy = watchedBy
+        e.watching = type(item.sp) == "string" and item.sp or nil
+    end
+
+    for uid, e in pairs(S.entries) do
+        if seen[uid] or now - (e.at or -math.huge) <= CFG.ENTRY_KEEP then continue end
+        S.entries[uid] = nil
+    end
+end
+
+-- attribute change listeners
+for _, attr in ipairs({ "AdminESP", "AdminRole", "StaffPvP" }) do
+    local conn = StaffState.changed(LocalPlayer, attr):Connect(syncMain)
+    table.insert(S.conns, conn)
+end
+for _, attr in ipairs({ "FustLosLines", "FustSpecTarget", "AdminESP", "StaffPvP", "AdminRole" }) do
+    local conn = StaffState.changed(LocalPlayer, attr):Connect(function()
+        task.defer(LOS.sync)
+    end)
+    table.insert(S.conns, conn)
+end
+
+-- player removal
+do
+    local conn = Players.PlayerRemoving:Connect(function(ply)
+        local uid = ply.UserId
+        S.entries[uid] = nil
+        local m = S.marks[uid]
+        if m then m.frame:Destroy(); m.arrow:Destroy(); S.marks[uid] = nil end
+        local h = S.hls[uid]
+        if h then instance.Destroy(h); S.hls[uid] = nil end
+        LOS.drop(uid)
+        LOS.pitch[uid] = nil
+    end)
+    table.insert(S.conns, conn)
+end
+
+-- cleanup on destroy
+do
+    local conn = script.Destroying:Connect(function()
+        if S.on ~= false then
+            S.on = false
+            if S.bound then S.bound = false end
+            clearAll()
+            if S.screen then instance.Destroy(S.screen); S.screen = nil end
+        end
+        for _, c in ipairs(S.conns) do c:Disconnect() end
+        table.clear(S.conns)
+        if LOS.conn then LOS.conn:Disconnect(); LOS.conn = nil end
+    end)
+    table.insert(S.conns, conn)
+end
+
+-- remote event listener
+task.spawn(function()
+    local ev = Remotes:WaitForChild("AdminESP", 120)
+    if ev and ev:IsA("RemoteEvent") then
+        local conn = ev.OnClientEvent:Connect(onPacket)
+        table.insert(S.conns, conn)
     end
 end)
 
--- ============================ ANTI-AFK ============================
-thread.Create(function()
-    if menu.Get("anti_afk") then
-        pcall(function() input.MoveMouse(0, 0) end)
-    end
-end, 10000)
-
--- ============================ MAIN FRAME LOOP ============================
-OnFrame = function()
-    refresh_cfg()
-    sync_silent_aim()
-    apply_aimbot()
-    apply_environment()
-    draw_player_esp()
-    if cfg.loot_esp    then draw_world_esp("loot",    cfg.loot_maxdist or 350, 12) end
-    if cfg.bodybag_esp then draw_world_esp("bodybag", cfg.bodybag_maxdist or 500, 12) end
-    if cfg.dropped_esp then draw_world_esp("dropped", cfg.dropped_maxdist or 150, 11) end
-    if cfg.nodes_esp   then draw_world_esp("node",    cfg.nodes_maxdist or 450, 12) end
-    if cfg.pickups_esp then draw_world_esp("pickup",  cfg.pickups_maxdist or 200, 11) end
-    draw_hud()
-end
-
--- ============================ JOIN/LEAVE TOASTS ============================
-OnPlayerAdded = function(player)
-    if menu.Get("notifs") then
-        notify.Success(player.Name .. " joined")
-    end
-end
-OnPlayerRemoved = function(player)
-    if menu.Get("notifs") then
-        notify.Warning(player.Name .. " left")
-    end
-end
-
-notify.Success("FUST Ultimate Hub loaded", "Based on Hamster Hub")
+-- initial state
+setOn((StaffState.get(LocalPlayer, "AdminESP") == true) and canUse() or false)
+LOS.sync()
